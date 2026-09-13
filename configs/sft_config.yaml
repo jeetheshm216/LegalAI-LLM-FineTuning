@@ -1,0 +1,79 @@
+# =============================================================================
+# LegalAI SFT Training Configuration (Full 3-Epoch Training)
+# Target Hardware: NVIDIA B200 (178GB VRAM)
+# Base Model: Qwen/Qwen2.5-14B-Instruct
+# Framework: Hugging Face Transformers + PEFT (LoRA) + TRL (SFTTrainer)
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 1. Model Configuration
+# -----------------------------------------------------------------------------
+model:
+  model_name_or_path: "Qwen/Qwen2.5-14B-Instruct"  # Single source of truth for base model
+  tokenizer_name_or_path: null                     # Null defaults to model_name_or_path
+  trust_remote_code: false                         # Standard Qwen2 architecture in transformers
+  use_fast_tokenizer: true                         # Fast tokenization
+  torch_dtype: "bfloat16"                          # Optimal precision for NVIDIA B200
+
+# -----------------------------------------------------------------------------
+# 2. Dataset Configuration
+# -----------------------------------------------------------------------------
+data:
+  train_file: "data/legal_train.jsonl"             # Training split (1800 examples, SFT messages)
+  validation_file: "data/legal_validation.jsonl"   # Validation split (200 examples, SFT messages)
+  max_seq_length: 2048                             # Maximum token context window
+  packing: false
+
+# -----------------------------------------------------------------------------
+# 3. LoRA (Low-Rank Adaptation) Configuration
+# -----------------------------------------------------------------------------
+lora:
+  r: 16                                            # LoRA rank dimension
+  lora_alpha: 32                                   # LoRA scaling factor (2x rank)
+  lora_dropout: 0.05                               # Dropout probability for LoRA layers
+  target_modules:                                  # Linear projection layers in Qwen2.5
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  bias: "none"
+  task_type: "CAUSAL_LM"
+
+# -----------------------------------------------------------------------------
+# 4. Training Hyperparameters
+# -----------------------------------------------------------------------------
+training:
+  output_dir: "outputs/legalai-qwen14b-checkpoint"  # Distinct directory for Qwen 14B adapter
+  num_train_epochs: 3                              # 3 full epochs for complete fine-tuning
+  per_device_train_batch_size: 4                   # Micro-batch size per GPU
+  per_device_eval_batch_size: 4                    # Micro-batch size during evaluation
+  gradient_accumulation_steps: 4                   # Effective batch size = 4 * 4 = 16
+  learning_rate: 2.0e-4                            # Initial learning rate for AdamW
+  lr_scheduler_type: "cosine"                      # Cosine learning rate decay
+  warmup_steps: 10                                 # Warmup steps
+  weight_decay: 0.01                               # Weight decay regularization
+  max_grad_norm: 1.0                               # Gradient clipping threshold
+
+# -----------------------------------------------------------------------------
+# 5. Precision & Hardware Acceleration
+# -----------------------------------------------------------------------------
+hardware:
+  bf16: true                                       # Native bfloat16 on NVIDIA B200
+  fp16: false
+  gradient_checkpointing: true                     # Activation checkpointing
+  dataloader_num_workers: 2
+
+# -----------------------------------------------------------------------------
+# 6. Logging, Evaluation & Checkpointing
+# -----------------------------------------------------------------------------
+logging:
+  logging_dir: "logs/tensorboard"
+  logging_steps: 5
+  report_to: "none"
+  eval_strategy: "epoch"
+  save_strategy: "epoch"
+  save_total_limit: 2
+  load_best_model_at_end: false

@@ -1,0 +1,236 @@
+/* ==========================================================================
+   LEGAL AI — Visual Design System (Tokens)
+   Authoritative source: LEGAL_AI_THEME.md
+   ========================================================================== */
+
+:root {
+  /* Color — Ink */
+  --color-ink-900: #0F1720;
+  --color-ink-700: #1B2836;
+  --color-ink-500: #33455A;
+  --color-ink-300: #5C7086;
+
+  /* Color — Accent (Verdigris) */
+  --color-accent-700: #3D6E64;
+  --color-accent-500: #4C8579;
+  --color-accent-100: #E4EFEC;
+
+  /* Color — Neutral Surfaces */
+  --color-bg-canvas: #F6F5F2;
+  --color-bg-surface: #FFFFFF;
+  --color-bg-surface-raised: #FFFFFF;
+  --color-bg-surface-sunken: #EFEDE8;
+  --color-border-subtle: #E4E1DA;
+  --color-border-default: #D3CFC5;
+  --color-border-strong: #B7B1A2;
+
+  /* Color — Text */
+  --color-text-primary: #171E26;
+  --color-text-secondary: #4B5563;
+  --color-text-muted: #6B7280;
+  --color-text-on-ink: #F6F5F2;
+  --color-text-link: #33455A;
+
+  /* Color — Status */
+  --color-success-text: #1E6B45;
+  --color-success-wash: #E6F3EC;
+  --color-success-border: #8FCBA9;
+
+  --color-warning-text: #8A5A11;
+  --color-warning-wash: #F7EEDD;
+  --color-warning-border: #D9B67B;
+
+  --color-error-text: #9B2C2C;
+  --color-error-wash: #F8E9E9;
+  --color-error-border: #D99999;
+
+  --color-information-text: #2A5C8A;
+  --color-information-wash: #E9F1F8;
+  --color-information-border: #9DC5E5;
+
+  /* Color — Case Status */
+  --color-case-active-text: #1F5C4D;
+  --color-case-active-wash: #E1EEE9;
+  --color-case-pending-text: #7A5B1E;
+  --color-case-pending-wash: #F3EBDA;
+  --color-case-upcoming-text: #2A5C8A;
+  --color-case-upcoming-wash: #E7F0F8;
+  --color-case-urgent-text: #9B3B2C;
+  --color-case-urgent-wash: #F7E7E3;
+  --color-case-closed-text: #4B5563;
+  --color-case-closed-wash: #EDEDEA;
+  --color-case-archived-text: #6B7280;
+  --color-case-archived-wash: #E9E7E1;
+
+  /* Color — AI Surfaces (Slate-Indigo) */
+  --color-ai-500: #4F5F8A;
+  --color-ai-100: #EEF0F6;
+  --color-ai-border: #D6DAE8;
+
+  /* Color — Legal Document */
+  --color-doc-page: #FFFFFF;
+  --color-doc-highlight: rgba(253, 230, 138, 0.4);
+  --color-doc-ai-highlight: rgba(238, 240, 246, 0.7);
+  --color-doc-redaction: #1B2836;
+
+  /* Typography Families */
+  --font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-sans: Inter, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+
+  /* Typography Scale */
+  --text-display: 2rem;      /* 32px */
+  --text-h1: 1.5rem;         /* 24px */
+  --text-h2: 1.1875rem;      /* 19px */
+  --text-h3: 1rem;           /* 16px */
+  --text-body: 0.9375rem;    /* 15px */
+  --text-body-lg: 1.0625rem; /* 17px */
+  --text-caption: 0.8125rem; /* 13px */
+  --text-label: 0.75rem;     /* 12px */
+  --text-button: 0.875rem;   /* 14px */
+  --text-mono: 0.8125rem;    /* 13px */
+
+  /* Spacing Scale */
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* Border Radius */
+  --radius-none: 0px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-chat-bubble-ai: 12px 12px 12px 4px;
+  --radius-chat-bubble-lawyer: 12px 12px 4px 12px;
+
+  /* Elevations */
+  --elevation-0: none;
+  --elevation-1: 0 1px 2px rgba(15, 23, 32, 0.06);
+  --elevation-2: 0 4px 12px rgba(15, 23, 32, 0.10);
+  --elevation-3: 0 12px 32px rgba(15, 23, 32, 0.16);
+
+  /* Motion */
+  --duration-instant: 80ms;
+  --duration-fast: 120ms;
+  --duration-default: 200ms;
+  --easing-standard: cubic-bezier(0.2, 0.0, 0.0, 1.0);
+  --easing-decelerate: cubic-bezier(0.0, 0.0, 0.0, 1.0);
+
+  /* Layout */
+  --header-height: 60px;
+  --ai-panel-docked-width: 420px;
+  --max-content-width: 1180px;
+
+  /* Z-Index */
+  --z-base: 0;
+  --z-sticky-header: 100;
+  --z-dropdown: 200;
+  --z-selected-text-popup: 300;
+  --z-slide-over: 400;
+  --z-modal: 500;
+  --z-toast: 600;
+}
+
+/* ==========================================================================
+   DARK MODE — Deliberately tuned, not an inversion (§17)
+   ========================================================================== */
+[data-theme="dark"] {
+  /* Color — Ink */
+  --color-ink-900: #E8EBEE;
+  --color-ink-700: #C7CED6;
+  --color-ink-500: #8D99AB;
+  --color-ink-300: #5C7086;
+
+  /* Color — Accent (Verdigris tuned lighter for contrast) */
+  --color-accent-700: #7FB3A8;
+  --color-accent-500: #5FA294;
+  --color-accent-100: #17251F;
+
+  /* Color — Neutral Surfaces */
+  --color-bg-canvas: #12161B;
+  --color-bg-surface: #181D24;
+  --color-bg-surface-raised: #1F252D;
+  --color-bg-surface-sunken: #0D1014;
+  --color-border-subtle: #262C34;
+  --color-border-default: #333B46;
+  --color-border-strong: #4A5563;
+
+  /* Color — Text */
+  --color-text-primary: #EDEFF2;
+  --color-text-secondary: #A8B0BC;
+  --color-text-muted: #78828F;
+  --color-text-on-ink: #0F1720;
+  --color-text-link: #8D99AB;
+
+  /* Color — Status */
+  --color-success-text: #6FCB9A;
+  --color-success-wash: #12261C;
+  --color-warning-text: #E0AD5C;
+  --color-warning-wash: #2A2114;
+  --color-error-text: #E28080;
+  --color-error-wash: #2A1616;
+  --color-information-text: #7FB3E0;
+  --color-information-wash: #141F2A;
+
+  /* Color — Case Status */
+  --color-case-active-text: #6FB6A0;
+  --color-case-active-wash: #152621;
+  --color-case-pending-text: #D6B26A;
+  --color-case-pending-wash: #2A2216;
+  --color-case-upcoming-text: #7FA9D6;
+  --color-case-upcoming-wash: #16222E;
+  --color-case-urgent-text: #DE8D75;
+  --color-case-urgent-wash: #2A1B15;
+  --color-case-closed-text: #A8B0BC;
+  --color-case-closed-wash: #20242A;
+  --color-case-archived-text: #7A828E;
+  --color-case-archived-wash: #1B1E23;
+
+  /* Color — AI Surfaces */
+  --color-ai-500: #8B98C4;
+  --color-ai-100: #1A1D28;
+  --color-ai-border: #2C3142;
+
+  /* Color — Legal Document (stays light paper even in dark mode per §2.8) */
+  --color-doc-page: #F4F1EA;
+
+  /* Dark Elevations */
+  --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --elevation-2: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --elevation-3: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+/* ==========================================================================
+   ACCESSIBILITY: High Contrast Mode (§16, §18)
+   ========================================================================== */
+[data-contrast="high"] {
+  --color-border-subtle: var(--color-border-strong);
+  --color-border-default: var(--color-border-strong);
+  --color-text-secondary: var(--color-text-primary);
+}
+
+/* ==========================================================================
+   ACCESSIBILITY: Reduced Motion (§18, §22)
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+[data-motion="reduced"] *, [data-motion="reduced"] *::before, [data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

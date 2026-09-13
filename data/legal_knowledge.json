@@ -1,0 +1,561 @@
+{
+  "_meta": {
+    "purpose": "Structured conceptual legal knowledge used by the dataset generator to construct training examples for LegalAI (Indian legal information assistant).",
+    "important_note": "This file intentionally avoids inventing specific section numbers, case citations, or exact statutory text unless they are extremely well-established and unlikely to be wrong (e.g. widely known Act names). Where a concept is described, it is described conceptually rather than via a fabricated citation. Add verified citations from India Code / Supreme Court of India / official sources as you confirm them.",
+    "how_to_extend": "Add new domains as top-level keys inside 'domains'. Each domain has 'concepts' (concept_name -> conceptual description), 'scenarios' (short fact patterns), and 'known_acts' (names of Acts commonly associated with the domain, used only as topic anchors, not as a source of specific section citations)."
+  },
+  "domains": {
+    "Indian Constitution": {
+      "known_acts": [
+        "The Constitution of India"
+      ],
+      "concepts": {
+        "basic structure doctrine": "A judicially developed principle holding that certain fundamental features of the Constitution cannot be altered even through a constitutional amendment.",
+        "separation of powers": "The division of governmental functions among the legislature, executive, and judiciary, with each branch expected to operate within its own domain, subject to checks and balances.",
+        "judicial review": "The power of courts to examine the constitutionality of legislative and executive actions and to strike them down if they are inconsistent with the Constitution.",
+        "federalism in India": "India follows a quasi-federal structure, with power distributed between the Union and the States, but with a strong tilt toward the Union in several respects.",
+        "writ jurisdiction": "The constitutional authority of the Supreme Court and High Courts to issue extraordinary prerogative writs—such as habeas corpus, mandamus, prohibition, certiorari, and quo warranto—for the enforcement of fundamental rights and other legal redress.",
+        "distribution of legislative powers": "The demarcation of law-making authority under the Seventh Schedule into the Union List (exclusive Union domain), State List (exclusive State domain), and Concurrent List (shared domain with Union prevalence in case of irreconcilable conflict).",
+        "constitutional amendment procedure": "The formal mechanism by which Parliament may amend provisions of the Constitution, subject to special majorities and, where federal principles are involved, ratification by State legislatures, bounded by the basic structure doctrine."
+      },
+      "scenarios": [
+        "A state government passes a law that a citizen believes conflicts with a fundamental right.",
+        "A citizen wants to challenge a government policy decision as arbitrary.",
+        "A citizen is detained by state authorities without being produced before a magistrate within 24 hours, and relatives seek immediate court intervention.",
+        "A dispute arises between a Union ministry and a State government over jurisdiction to regulate an emerging trade activity."
+      ]
+    },
+    "Fundamental Rights": {
+      "known_acts": [
+        "The Constitution of India, Part III"
+      ],
+      "concepts": {
+        "right to equality": "The principle that the State shall not discriminate against citizens on prohibited grounds and must treat similarly situated persons alike, subject to reasonable classification.",
+        "right to life and personal liberty": "A broad protection interpreted expansively by courts to include not just physical existence but a life with dignity, and various derivative rights such as privacy.",
+        "right to constitutional remedies": "The right of a person to approach courts directly for enforcement of fundamental rights.",
+        "reasonable restrictions": "Fundamental rights such as freedom of speech are not absolute and may be subject to reasonable restrictions imposed by law for specified purposes like public order, morality, or security of the State.",
+        "protection against self-incrimination": "The constitutional guarantee that no person accused of any offence shall be compelled to be a witness against himself, protecting against coerced confessions and involuntary self-implication.",
+        "protection against double jeopardy": "The constitutional principle that no person shall be prosecuted and punished for the same offence more than once before a court of law or judicial tribunal.",
+        "freedom of speech and expression": "The right of citizens to express convictions and opinions freely by word of mouth, writing, printing, picture or other medium, subject only to reasonable restrictions codified by law.",
+        "right against arbitrary arrest and detention": "Procedural safeguards ensuring that an arrested person must be informed of the grounds of arrest promptly, allowed to consult legal counsel, and produced before a judicial magistrate within 24 hours."
+      },
+      "scenarios": [
+        "A person's social media post is taken down and they claim it violates their freedom of expression.",
+        "A government job advertisement appears to exclude a particular group without clear justification.",
+        "An accused person alleges that investigating officers compelled him to sign a self-incriminating admission during questioning.",
+        "An individual faces a second prosecution for the identical set of criminal allegations after being formally convicted and punished in a prior trial."
+      ]
+    },
+    "Criminal Law": {
+      "known_acts": [
+        "Bharatiya Nyaya Sanhita, 2023 (which has replaced the Indian Penal Code, 1860, for offences committed after it came into force)"
+      ],
+      "concepts": {
+        "mens rea": "The mental element or guilty intention required for most criminal offences, alongside the actual prohibited act (actus reus).",
+        "cognizable vs non-cognizable offence": "A cognizable offence allows police to arrest without a warrant and investigate without prior court permission; a non-cognizable offence generally requires court permission for investigation and arrest is not automatic.",
+        "bailable vs non-bailable offence": "Bailable offences give the accused a right to bail as a matter of course; in non-bailable offences, bail is at the discretion of the court, considering the facts and seriousness of the case.",
+        "anticipatory bail": "A pre-arrest legal remedy that allows a person who apprehends arrest on accusation of a non-bailable offence to seek a direction that they be released on bail if arrested.",
+        "statutory prospective application": "Under India's criminal justice framework, substantive offences committed on or after 1 July 2024 are governed prospectively by the Bharatiya Nyaya Sanhita (BNS) and procedural steps by the Bharatiya Nagarik Suraksha Sanhita (BNSS), ensuring full protection against retrospective criminal liability as guaranteed under Article 20(1) of the Constitution.",
+        "theft vs criminal misappropriation vs criminal breach of trust": "Theft involves dishonestly taking movable property out of possession without consent; criminal misappropriation occurs when property comes innocently into possession and is subsequently dishonestly converted; criminal breach of trust involves dishonest conversion of property entrusted to a person.",
+        "cheating and criminal fraud": "The dishonest inducement of a person by deception to deliver property, consent to retention of property, or do or omit to do an act causing harm in body, mind, reputation, or property.",
+        "right of private defence": "The legal justification allowing an individual to use reasonable and proportionate force to defend oneself, another person, or property against an unlawful criminal attack when state protection is not immediately accessible.",
+        "common intention vs common object": "Common intention implies a pre-arranged plan and prior meeting of minds among participants acting in furtherance of a criminal act, whereas common object attaches liability to members of an unlawful assembly who share a shared unlawful purpose."
+      },
+      "scenarios": [
+        "A person is falsely accused of theft by a neighbour after a property dispute.",
+        "Someone is worried about being arrested in a cheque bounce-related dispute.",
+        "A person wants to know what happens after an FIR is registered against them.",
+        "An employee entrusted with client investment funds diverts them into a personal trading account and refuses to refund them.",
+        "A shopkeeper uses reasonable physical force to ward off an aggressive intruder attempting a violent robbery on premises."
+      ]
+    },
+    "Criminal Procedure": {
+      "known_acts": [
+        "Bharatiya Nagarik Suraksha Sanhita, 2023 (which has replaced the Code of Criminal Procedure, 1973, for proceedings governed by the new law)"
+      ],
+      "concepts": {
+        "FIR (First Information Report)": "The document prepared by police recording information about the commission of a cognizable offence, which sets the criminal investigation process in motion.",
+        "chargesheet": "The final report filed by police after investigation, summarizing evidence and, where warranted, the charges recommended against the accused.",
+        "bail process": "A general sequence in which a person may apply for bail before a magistrate or higher court, with the court weighing factors like flight risk, tampering with evidence, and severity of the offence.",
+        "summons vs warrant case": "Procedural classification of criminal cases based on the severity of punishment, affecting how the accused is required to appear before the court.",
+        "statutory or default bail": "The indefeasible right of an undertrial prisoner to be released on bail if the police investigation is not completed and the chargesheet/final report is not filed within the statutorily prescribed outer timeframe.",
+        "search and seizure safeguards": "Procedural requirements designed to prevent fabricated recoveries, including conducting searches in the presence of independent witnesses, recording seizure lists/panchnamas, and sealing recovered articles.",
+        "rights of an arrested person": "The entitlement to know the exact grounds of arrest, the right to meet and consult an advocate of choice, the right to free legal aid if indigent, the right to medical examination, and mandatory production before a magistrate within 24 hours.",
+        "compounding of offences": "A procedural mechanism permitting the victim and the accused to compromise and settle specified minor or compoundable criminal charges, resulting in the acquittal of the accused upon settlement."
+      },
+      "scenarios": [
+        "A person wants to understand the general steps after filing a police complaint.",
+        "Someone wants to know the difference between being called for questioning and being arrested.",
+        "An undertrial has spent over ninety days in judicial custody while police have still not submitted the investigation final report to the magistrate.",
+        "A person arrested on allegations of a financial dispute wishes to compromise the matter with the complainant and have the criminal case formally closed."
+      ]
+    },
+    "Civil Law": {
+      "known_acts": [
+        "Code of Civil Procedure, 1908"
+      ],
+      "concepts": {
+        "civil vs criminal proceedings": "Civil proceedings generally resolve disputes between private parties and typically result in remedies like damages or injunctions, while criminal proceedings are brought by the State to punish conduct considered an offence against society.",
+        "cause of action": "The set of facts that gives a person the right to seek a judicial remedy against another.",
+        "limitation period": "The prescribed time within which a legal claim must be brought, after which the claim may become time-barred, subject to certain exceptions.",
+        "temporary vs permanent injunction": "A temporary injunction is an interim order granted during the pendency of a suit to preserve the status quo until final adjudication; a permanent injunction is decreed at the conclusion of trial after full determination of rights.",
+        "res judicata": "The rule that once a court of competent jurisdiction has finally decided an issue between the same parties or their privies on the merits, neither party may relitigate that same matter in subsequent proceedings.",
+        "specific performance of contract": "A discretionary civil remedy where a court compels a defaulting party to perform their actual contractual obligation rather than merely awarding monetary damages, particularly relevant in immovable property transactions.",
+        "execution of decree": "The formal procedural process through which a successful decree-holder petitions the court to enforce and realise the relief granted in a civil judgment against the judgment-debtor."
+      },
+      "scenarios": [
+        "A person wants to sue a neighbour for damage caused to their property.",
+        "Someone wants to know whether they can still file a claim after several years have passed.",
+        "A landowner discovers an adjacent neighbour has commenced unauthorized excavation on his registered boundary and seeks urgent interim protection.",
+        "A seller refuses to execute a registered sale deed after accepting advance payment under a concluded agreement to sell residential property."
+      ]
+    },
+    "Contract Law": {
+      "known_acts": [
+        "Indian Contract Act, 1872"
+      ],
+      "concepts": {
+        "essentials of a valid contract": "Generally includes offer, acceptance, lawful consideration, capacity of parties, free consent, and a lawful object.",
+        "breach of contract": "A failure by one party to perform their obligations under a contract, which may entitle the other party to remedies such as damages, specific performance, or rescission, depending on the facts.",
+        "void vs voidable contract": "A void contract has no legal effect from the outset, while a voidable contract is valid until the aggrieved party chooses to avoid it.",
+        "security deposit disputes": "Disputes over return of a security deposit are often treated as contractual/civil matters (or under specific rent-related regulations if applicable), where the terms of the underlying agreement and any applicable state rent laws are relevant.",
+        "frustration of contract and force majeure": "When an unforeseen supervening event beyond the contemplation and control of contracting parties renders contractual performance fundamentally impossible or unlawful, discharging further performance obligations.",
+        "liquidated damages vs penalty": "Liquidated damages represent a genuine pre-estimate of loss agreed by parties in advance; penalty clauses impose disproportionate punitive sums intended to deter breach, which Indian courts will not enforce beyond reasonable actual compensation.",
+        "indemnity vs guarantee": "A contract of indemnity involves a promise to save a party harmless from loss caused by the conduct of the promisor or third party; a guarantee involves a tripartite promise to perform or discharge liability of a third party in case of default.",
+        "free consent and vitiating factors": "A contract requires consent free from coercion, undue influence, fraud, misrepresentation, or mutual mistake of fact; the presence of vitiating factors renders the agreement voidable at the option of the aggrieved party."
+      },
+      "scenarios": [
+        "A landlord refuses to return a tenant's security deposit after the tenancy ends.",
+        "A freelancer is not paid for completed work under a verbal agreement.",
+        "A vendor fails to deliver goods as agreed in a purchase order.",
+        "A commercial supplier fails to deliver imported industrial parts due to an unexpected government embargo on international freight.",
+        "A client terminates a service vendor contract abruptly and claims forfeiture of a security deposit that exceeds any actual operational loss."
+      ]
+    },
+    "Property Law": {
+      "known_acts": [
+        "Transfer of Property Act, 1882",
+        "Registration Act, 1908"
+      ],
+      "concepts": {
+        "sale vs transfer of property": "A sale involves transfer of ownership for a price, and certain transfers of immovable property require registration to be legally effective.",
+        "mortgage": "A transfer of an interest in specific immovable property for the purpose of securing the payment of money advanced or to be advanced by way of loan.",
+        "adverse possession": "A legal doctrine under which a person in continuous, open, and hostile possession of property for a statutorily prescribed period may acquire ownership rights, subject to strict conditions.",
+        "lease vs license": "A lease creates an interest in the immovable property with transfer of possession and exclusive possession rights; a license merely grants a personal permission to enter and use the property without creating any proprietary interest or tenancy.",
+        "easementary rights": "A right possessed by the owner or occupier of land for beneficial enjoyment, permitting them to do something or prevent something from being done upon adjacent land belonging to another (e.g., right of way, light, or water support).",
+        "registration requirements for immovable property": "Statutory mandates requiring transfers of immovable property exceeding specified value, gifts of real estate, and long-term leases to be executed through registered instruments, failing which title does not pass legally.",
+        "ancestral vs self-acquired property": "Ancestral property is inherited through generations up to four degrees and gives coparceners birthrights under personal law; self-acquired property is acquired through an individual's own income, over which the owner has unfettered testamentary power."
+      },
+      "scenarios": [
+        "A buyer discovers after purchase that the seller did not have clear title to the property.",
+        "A family dispute arises over inherited ancestral property.",
+        "A shop owner operating inside a commercial complex is asked to vacate on 24 hours notice and disputes whether the agreement was a lease or license.",
+        "A homeowner finds that a long-established access path to his rear garage has been obstructed by a newly constructed wall on the neighbouring plot."
+      ]
+    },
+    "Family Law": {
+      "known_acts": [
+        "Hindu Marriage Act, 1955",
+        "Special Marriage Act, 1954",
+        "Hindu Succession Act, 1956"
+      ],
+      "concepts": {
+        "grounds for divorce": "Personal laws in India generally specify grounds such as cruelty, desertion, adultery, or mutual consent, though the specific grounds and procedure vary by the personal law applicable to the parties.",
+        "maintenance": "A right to financial support that a spouse, child, or dependent parent may claim under various personal laws or general provisions, intended to prevent destitution.",
+        "succession and inheritance": "Rules governing how property is inherited generally depend on the religion/personal law applicable to the deceased, and on whether the person died leaving a valid will.",
+        "mutual consent divorce": "A streamlined divorce mechanism where both spouses jointly petition the court stating that they have lived separately for a statutorily required duration, cannot live together, and have mutually agreed to dissolve the marriage.",
+        "child custody and best interests principle": "The overarching legal standard in guardianship and custody disputes requiring courts to prioritize the moral, physical, emotional, and educational welfare of the child above parental preferences.",
+        "restitution of conjugal rights": "A statutory remedy where one spouse who has withdrawn from the society of the other without reasonable excuse can be ordered by the court to resume cohabitation.",
+        "stridhan and matrimonial property": "Stridhan encompasses property gifted to a woman before, during, or after marriage, over which she retains absolute and exclusive ownership rights irrespective of marital estrangement."
+      },
+      "scenarios": [
+        "A spouse wants to understand their options in a marriage marked by ongoing cruelty.",
+        "Children from a family want to know how ancestral property will be divided after a parent's death.",
+        "Spouses who have lived apart for over two years agree on alimony and division of belongings and wish to understand the process for an amicable divorce.",
+        "A separated mother seeks return of jewelry and personal gifts presented to her by her family at the time of marriage that are retained by her in-laws."
+      ]
+    },
+    "Consumer Protection": {
+      "known_acts": [
+        "Consumer Protection Act, 2019"
+      ],
+      "concepts": {
+        "who is a consumer": "Generally a person who buys goods or hires/avails services for consideration, excluding purely commercial resale purposes in most cases.",
+        "consumer complaint forums": "A tiered system of consumer commissions (District, State, National) that adjudicate consumer disputes based on the value of the claim.",
+        "deficiency in service": "A shortcoming, inadequacy, or imperfection in the quality of service that a consumer was entitled to expect.",
+        "unfair trade practices": "Deceptive or misleading commercial conduct, including false representation regarding standards or quality, sham price discounts, withholding mandatory safety disclosures, and refusal to issue lawful receipts.",
+        "product liability framework": "The legal accountability of a product manufacturer, service provider, or seller to compensate a consumer for harm, injury, or property damage caused by a defective product or deficient service.",
+        "consumer mediation mechanism": "A statutory alternative dispute avenue allowing consumer commissions to refer consumer disputes to attached mediation cells for prompt settlement with mutual agreement.",
+        "misleading advertisements": "Commercial claims that falsely describe products or services, give false guarantees, or convey representations likely to mislead consumers regarding nature, substance, or quantity."
+      },
+      "scenarios": [
+        "A person purchased a defective electronic product and the seller refuses a refund or replacement.",
+        "An e-commerce delivery never arrives, but the platform is unresponsive.",
+        "A consumer buys an expensive smartphone that catches fire during ordinary charging, damaging furniture and causing minor burns.",
+        "A buyer enrolls in an online training program based on advertised guarantees of placement assistance that the institute refuses to honor after payment."
+      ]
+    },
+    "Labour and Employment Law": {
+      "known_acts": [
+        "Industrial Disputes Act, 1947",
+        "Code on Wages, 2019",
+        "Payment of Gratuity Act, 1972"
+      ],
+      "concepts": {
+        "wrongful termination": "Termination that does not comply with applicable procedural or substantive protections for employees, which can potentially be challenged depending on the employee's status and the applicable law.",
+        "notice period and dues": "Employment contracts and applicable labour laws often govern notice period requirements and the settlement of final dues upon separation.",
+        "gratuity": "A statutory retirement benefit payable to employees who have rendered a minimum period of continuous service, subject to conditions.",
+        "retrenchment and severance compensation": "The termination by an employer of the services of a workman for reasons other than disciplinary punishment, requiring advance notice, payment of retrenchment compensation based on completed service, and regulatory reporting.",
+        "prevention of sexual harassment (POSH) framework": "Statutory mandates requiring employers with ten or more employees to constitute an Internal Committee, conduct gender sensitization, and provide confidential inquiry procedures for workplace harassment complaints.",
+        "provident fund and statutory employee benefits": "Compulsory social security welfare mechanisms (EPF, ESI) under which matching employer-employee contributions are accumulated for post-retirement financial security and healthcare access.",
+        "probation period and confirmation rights": "An agreed trial period during which employment can generally be evaluated and terminated per contract terms, after which the employee attains confirmed status requiring standard cause or notice for termination."
+      },
+      "scenarios": [
+        "An employee is terminated abruptly without notice or explanation.",
+        "A worker has not received full and final settlement after resignation.",
+        "An enterprise employing fifty staff members announces sudden company-wide layoffs without serving statutory advance notice or retrenchment compensation.",
+        "A corporate employee wishes to report unwelcome conduct by a senior executive and asks how the Internal Committee inquiry must proceed."
+      ]
+    },
+    "Cyber Law": {
+      "known_acts": [
+        "Information Technology Act, 2000"
+      ],
+      "concepts": {
+        "cyber fraud": "Fraud committed using computer systems or the internet, such as phishing or unauthorized fund transfers, which can attract both cyber-law and general criminal-law provisions.",
+        "identity theft online": "Unauthorized use of another person's identifying information online, which can have both civil and criminal consequences.",
+        "reporting cybercrime": "India has a centralized cybercrime reporting mechanism intended to allow victims to report incidents to law enforcement.",
+        "phishing and unauthorized account access": "The fraudulent extraction of sensitive personal data or financial credentials through deceptive electronic communications, constituting both cyber hacking and cheating under penal and IT statutes.",
+        "cyber extortion and ransomware": "Unlawfully locking or encrypting data systems and demanding illicit payments to restore access, punishable under cybercrime and extortion provisions.",
+        "deepfakes and digital impersonation": "The creation or dissemination of manipulated synthetic media depicting an individual without consent to damage reputation, defraud, or breach privacy.",
+        "digital signature and electronic contract validity": "Legal recognition accorded to electronic records and digital/electronic signatures satisfying statutory authentication standards, making digital contracts enforceable."
+      },
+      "scenarios": [
+        "A person's bank account is debited due to a phishing scam.",
+        "Someone discovers a fake social media profile impersonating them.",
+        "An individual receives a fake banking portal notification, clicks the link, and finds unauthorized fund transfers debited from his savings account.",
+        "A professional discovers fabricated deepfake videos depicting her likeness circulating on public social platforms accompanied by defamatory claims."
+      ]
+    },
+    "Information Technology Law": {
+      "known_acts": [
+        "Information Technology Act, 2000",
+        "Information Technology Rules"
+      ],
+      "concepts": {
+        "intermediary liability": "Online platforms may receive certain protections from liability for user-generated content if they meet specified due-diligence obligations.",
+        "electronic evidence": "Electronic records can be admitted as evidence in Indian courts, subject to compliance with specific procedural safeguards regarding authenticity.",
+        "electronic records admissibility principle": "Statutory rules governing the proof and evidentiary admissibility of electronic records, computer outputs, and digital messages in judicial proceedings through verified certificate standards.",
+        "safe harbour for internet intermediaries": "The conditional legal exemption protecting online platforms and intermediaries from liability for third-party user content, conditioned on observing statutory due diligence and adhering to lawful takedown orders.",
+        "government website blocking orders": "The statutory executive power to direct blocking of public access to online information in the interests of state sovereignty, integrity, security, public order, or friendly foreign relations."
+      },
+      "scenarios": [
+        "A user wants to know if a screenshot of a chat can be used as evidence.",
+        "A platform takes down a user's content and the user wants to understand their options.",
+        "A party in a commercial lawsuit seeks to tender WhatsApp chat transcripts and emails as evidence and inquires about mandatory certification requirements.",
+        "A web platform administrator receives a legal takedown notice regarding allegedly infringing material uploaded by an anonymous user."
+      ]
+    },
+    "Intellectual Property Law": {
+      "known_acts": [
+        "Copyright Act, 1957",
+        "Trade Marks Act, 1999",
+        "Patents Act, 1970"
+      ],
+      "concepts": {
+        "copyright basics": "Copyright generally protects original literary, artistic, musical, and certain other works, giving the creator exclusive rights subject to specified exceptions like fair dealing.",
+        "trademark registration": "Registering a trademark provides statutory protection and an easier path to enforcement compared to relying solely on unregistered/common-law rights.",
+        "patent eligibility": "Patents generally protect novel, non-obvious, and industrially applicable inventions, subject to specific statutory exclusions.",
+        "fair dealing in copyright": "A statutory defense permitting limited unauthorized use of copyrighted works for specific purposes such as private study, research, criticism, review, and reporting current events without infringement.",
+        "trademark infringement vs passing off": "Infringement is a statutory remedy protecting registered trademarks against confusingly similar marks in related classes; passing off is a common-law tort protecting unregistered commercial goodwill and reputation against deceptive misrepresentation.",
+        "trade secret and confidential information protection": "Protection afforded under contract and common-law principles to proprietary technical know-how, client lists, and confidential business data against unauthorized disclosure or breach of confidence."
+      },
+      "scenarios": [
+        "A small business wants to know whether their logo needs trademark registration.",
+        "A writer discovers their blog content has been copied without permission on another website.",
+        "An academic researcher includes small excerpts of published textbooks with commentary in an educational paper and worries about copyright infringement.",
+        "A local bakery adopts a packaging design and brand name visually indistinguishable from an established regional confectionery brand."
+      ]
+    },
+    "Company and Business Law": {
+      "known_acts": [
+        "Companies Act, 2013",
+        "Limited Liability Partnership Act, 2008"
+      ],
+      "concepts": {
+        "types of business structures": "Common structures in India include sole proprietorship, partnership, LLP, and private/public limited companies, each with different liability, compliance, and taxation implications.",
+        "director's duties": "Directors of a company generally owe fiduciary and statutory duties to act in good faith and in the best interests of the company and its stakeholders.",
+        "incorporation basics": "Incorporating a company generally involves reserving a name, drafting foundational documents, and registering with the relevant authority.",
+        "separate legal personality and limited liability": "The principle that an incorporated company is an independent legal juristic entity distinct from its shareholders and directors, whose financial liability is generally limited to their unpaid share capital.",
+        "oppression and mismanagement remedies": "Statutory avenues before the National Company Law Tribunal (NCLT) allowing minority shareholders holding threshold shareholding to seek relief against oppressive, prejudicial, or mismanaged corporate actions.",
+        "insolvency and corporate resolution (IBC overview)": "A creditor-driven statutory framework aiming for time-bound revival and resolution of corporate debtors through an insolvency professional and committee of creditors, failing which liquidation ensues.",
+        "lifting the corporate veil": "Exceptional judicial doctrine where courts disregard a company's separate legal personality to hold individual directors or shareholders personally liable when corporate form is used as a sham or instrument of fraud."
+      },
+      "scenarios": [
+        "A founder wants to know which business structure suits a small two-person startup.",
+        "A minority shareholder feels decisions are being made without their input.",
+        "Minority shareholders holding twenty percent of a private company allege that majority promoter-directors are siphoning corporate profits through sham vendor entities.",
+        "A supplier faces non-payment of verified trade invoices by a corporate buyer whose directors claim complete immunity under limited liability."
+      ]
+    },
+    "Environmental Law": {
+      "known_acts": [
+        "Environment (Protection) Act, 1986",
+        "Water (Prevention and Control of Pollution) Act, 1974",
+        "Air (Prevention and Control of Pollution) Act, 1981"
+      ],
+      "concepts": {
+        "polluter pays principle": "A principle under which the party responsible for causing pollution bears the cost of remedying the harm caused.",
+        "environmental clearance": "Certain categories of industrial or infrastructure projects require prior environmental clearance from designated authorities before commencement.",
+        "public interest litigation in environmental matters": "Courts in India have historically allowed public-spirited persons to bring environmental concerns before courts even without direct personal injury, in appropriate cases.",
+        "precautionary principle": "The environmental doctrine mandating that lack of full scientific certainty shall not be used as a reason for postponing cost-effective measures to prevent environmental degradation where serious or irreversible damage threatens.",
+        "public trust doctrine in natural resources": "The legal principle that rivers, sea shores, forests, and air are held by the State as a trustee for the public benefit and cannot be alienated or converted into private commercial ownership.",
+        "National Green Tribunal (NGT) jurisdiction": "A specialized judicial forum established for the expeditious disposal of civil environmental cases, enforcement of environmental legal rights, and awarding compensation for environmental damage."
+      },
+      "scenarios": [
+        "Residents near a factory are concerned about industrial pollution affecting their health.",
+        "A construction project appears to be proceeding without required environmental approvals.",
+        "A community living near a wetland discovers that an industrial estate is dumping untreated chemical effluent directly into a local water body.",
+        "A local citizens forum wishes to challenge an infrastructure project permitted without an environmental impact assessment."
+      ]
+    },
+    "Banking and Financial Law": {
+      "known_acts": [
+        "Negotiable Instruments Act, 1881",
+        "Banking Regulation Act, 1949",
+        "SARFAESI Act, 2002"
+      ],
+      "concepts": {
+        "cheque bounce liability": "Dishonour of a cheque due to insufficient funds can, under certain conditions, lead to criminal liability in addition to civil recovery options, provided statutory notice and timelines are complied with.",
+        "loan default and recovery": "Banks and financial institutions have specific statutory mechanisms to recover dues and enforce security interests in case of default, subject to procedural safeguards for borrowers.",
+        "RBI regulatory role": "The Reserve Bank of India regulates banks and several categories of financial institutions and their conduct toward customers.",
+        "SARFAESI secured creditor recovery": "A statutory mechanism empowering banks and financial institutions to enforce secured interests and take possession of pledged collateral assets without court intervention after loan default and formal demand notice.",
+        "Banking Ombudsman grievance scheme": "A cost-free alternative grievance redressal forum instituted by the Reserve Bank of India to resolve customer complaints against deficiencies in banking services, unauthorized debits, or unfair charges.",
+        "statutory demand notice for cheque dishonour": "A mandatory written demand notice requiring payment within fifteen days from receipt, which must be served on the drawer of a bounced cheque before instituting criminal proceedings."
+      },
+      "scenarios": [
+        "A person issued a cheque that has bounced and wants to understand possible consequences.",
+        "A borrower is facing loan recovery action and wants to know their rights.",
+        "A small business owner receives a sixty-day formal possession notice from a secured lender under recovery statutes after three unpaid loan installments.",
+        "A bank customer suffers an unauthorized debit due to banking system glitches and receives no response from the branch manager after thirty days."
+      ]
+    },
+    "Motor Vehicle Law": {
+      "known_acts": [
+        "Motor Vehicles Act, 1988"
+      ],
+      "concepts": {
+        "third-party insurance": "Mandatory insurance intended to compensate third parties for death, injury, or property damage caused by a motor vehicle accident.",
+        "compensation for accident victims": "Motor accident claims tribunals adjudicate compensation claims arising from motor vehicle accidents, considering factors like income loss and injury severity.",
+        "traffic offences": "Various traffic violations carry specified penalties, with enhanced penalties introduced over time for serious violations like drunk driving.",
+        "Motor Accident Claims Tribunal (MACT) procedure": "A dedicated civil adjudicatory body established to determine claims for compensation arising out of motor vehicular accidents resulting in death, bodily injury, or property damage.",
+        "no-fault liability and hit-and-run fund": "Statutory mechanisms providing interim or fixed compensation to accident victims or surviving kin without requiring immediate proof of negligence, including state relief funds for untraced offending vehicles.",
+        "compulsory insurance requirement": "Statutory mandate prohibiting the operation of motor vehicles on public roads without valid third-party insurance coverage protecting against pedestrian, passenger, and third-party liabilities."
+      },
+      "scenarios": [
+        "A person is injured in a road accident caused by another driver and wants to know about compensation.",
+        "Someone wants to understand what documents are legally required while driving.",
+        "A pedestrian struck by a speeding vehicle sustains severe orthopedic injuries and seeks compensation for medical expenses and loss of livelihood.",
+        "A vehicle owner involved in an accident discovers that their insurance policy lapsed two weeks prior to the incident."
+      ]
+    },
+    "Tax-related legal concepts": {
+      "known_acts": [
+        "Income-tax Act, 1961",
+        "Central Goods and Services Tax Act, 2017"
+      ],
+      "concepts": {
+        "direct vs indirect tax": "Direct taxes like income tax are levied directly on income/wealth of a person, while indirect taxes like GST are levied on the supply of goods and services and generally passed on to the consumer.",
+        "tax assessment and appeal": "Taxpayers who disagree with a tax assessment generally have a structured appellate process available to challenge it.",
+        "tax deduction at source (TDS)": "A statutory mechanism where the person or entity responsible for making specified payments (such as salary, professional fees, or rent) must deduct tax at prescribed rates and remit it to the revenue authority.",
+        "advance tax obligation": "The requirement that taxpayers whose estimated annual tax liability exceeds prescribed thresholds must pay their income tax in quarterly installments during the financial year rather than at year-end.",
+        "tax avoidance vs tax evasion": "Tax avoidance involves legitimately arranging financial affairs within the four corners of law to minimize tax liability; tax evasion involves illegal, fraudulent non-payment or suppression of taxable income."
+      },
+      "scenarios": [
+        "A salaried individual wants to understand why certain deductions were disallowed.",
+        "A small business owner wants to understand basic GST compliance obligations.",
+        "An independent consultant notices that a corporate client withheld tax from payment invoices but failed to issue a withholding certificate or reflect it in revenue records.",
+        "A salaried taxpayer wonders whether legitimate deductions under tax welfare provisions constitute impermissible evasion."
+      ]
+    },
+    "Education-related law": {
+      "known_acts": [
+        "Right of Children to Free and Compulsory Education Act, 2009"
+      ],
+      "concepts": {
+        "right to education": "Certain children have a statutory right to free and compulsory education up to a specified age, with related obligations on schools.",
+        "ragging and student safety": "Educational institutions in India are generally required to take specific measures to prevent ragging and ensure student safety.",
+        "right to elementary education": "The constitutional and statutory guarantee assuring free and compulsory elementary education to all children aged six to fourteen years in neighborhood schools.",
+        "anti-ragging mandatory reporting": "Strict statutory and regulatory mandates requiring higher educational institutions to take preventive measures, register criminal complaints with local police, and impose disciplinary sanctions against student bullying and ragging.",
+        "fee refund and original document retention rules": "Regulatory standards prohibiting higher education institutions from retaining original student academic certificates or refusing proportionate fee refunds upon timely withdrawal before admission cut-offs."
+      },
+      "scenarios": [
+        "A parent wants to know their child's rights regarding admission to a neighbourhood school.",
+        "A student experiences ragging and wants to know what steps can be taken.",
+        "A university student faces persistent harassment and intimidation by senior students on campus and fears reporting to local administration.",
+        "A candidate cancels admission to a private college before academic commencement, but the college authorities refuse to return original marksheets."
+      ]
+    },
+    "Women and Child Protection": {
+      "known_acts": [
+        "Protection of Women from Domestic Violence Act, 2005",
+        "Protection of Children from Sexual Offences (POCSO) Act, 2012",
+        "Dowry Prohibition Act, 1961"
+      ],
+      "concepts": {
+        "domestic violence protections": "Legal remedies exist for protection orders, residence rights, and monetary relief for persons facing domestic violence, in addition to any criminal remedies.",
+        "dowry-related offences": "Demanding or giving dowry is prohibited by law, and related harassment can attract both civil and criminal consequences.",
+        "child protection framework": "Special statutory frameworks exist for the protection of children from abuse and exploitation, with child-friendly procedures for reporting and trial.",
+        "protection orders under domestic violence law": "Interim and final judicial orders issued by magistrates restraining an abusive party from committing acts of domestic violence, entering the workplace or school of the aggrieved, or alienating shared assets.",
+        "right to shared household": "The legal right of an aggrieved woman to reside in the shared household irrespective of whether she holds legal title, joint ownership, or proprietary rights in the dwelling.",
+        "mandatory reporting under POCSO": "A strict statutory duty imposed on any person, medical professional, or educational institution aware of sexual offences against a minor to report the incident immediately to police or Child Welfare Committees.",
+        "zero FIR principle": "The established police procedural rule that an FIR can be registered at any police station across jurisdictions regardless of territorial place of occurrence, with subsequent transfer to the jurisdictional station."
+      },
+      "scenarios": [
+        "A woman is facing ongoing harassment from her in-laws over dowry demands.",
+        "A parent suspects their child is being harmed and wants to know how to report it safely.",
+        "A woman facing physical threats in her matrimonial home seeks urgent legal protection restraining her spouse from forcibly evicting her.",
+        "A school principal is informed by a counselor of an alleged assault against a student and inquires about mandatory reporting duties."
+      ]
+    },
+    "Senior Citizen-related law": {
+      "known_acts": [
+        "Maintenance and Welfare of Parents and Senior Citizens Act, 2007"
+      ],
+      "concepts": {
+        "maintenance of parents": "Senior citizens and parents who are unable to maintain themselves may be entitled to seek maintenance from their children or relatives under specific statutory provisions.",
+        "eviction of children from parent's property": "Certain statutory mechanisms allow parents to seek removal of children from their property in specified circumstances of neglect or mistreatment.",
+        "maintenance orders for senior citizens": "Statutory summary proceedings before dedicated Maintenance Tribunals allowing parents and senior citizens unable to maintain themselves to claim monthly living allowances from adult children or legal heirs.",
+        "conditional property transfer revocation": "A protective statutory clause providing that where a senior citizen transfers property to an heir subject to condition of providing basic amenities and physical needs, failure to do so renders the transfer void as deemed fraud or coercion.",
+        "protection against abandonment": "Penal and civil protections making intentional abandonment of dependent senior citizens a punishable offence and providing state protective shelter mechanisms."
+      },
+      "scenarios": [
+        "Elderly parents are not being financially supported by their adult children.",
+        "A senior citizen wants to know their options if a family member is misusing their property.",
+        "An elderly father transfers his residential house to his son on the express promise of lifetime medical and daily care, after which the son attempts to expel him.",
+        "A senior citizen with no independent income seeks financial maintenance from adult children who have refused assistance."
+      ]
+    },
+    "Privacy and Data Protection": {
+      "known_acts": [
+        "Digital Personal Data Protection Act, 2023"
+      ],
+      "concepts": {
+        "personal data principles": "Processing of personal data is generally expected to be lawful, purpose-limited, and subject to consent or another valid legal basis, along with data-security obligations on the entity processing the data.",
+        "right to privacy": "The right to privacy has been recognized as intrinsic to the right to life and personal liberty, informing how personal data and bodily autonomy are protected under Indian law.",
+        "consent and notice under DPDP Act": "The foundational statutory principle under digital personal data legislation requiring data fiduciaries to obtain clear, unbundled, and informed consent accompanied by an itemized privacy notice specifying processing purposes.",
+        "data fiduciary obligations": "The statutory duty of organizations collecting personal data to ensure data accuracy, implement reasonable technical security safeguards, and erase personal data once the stated purpose has been satisfied.",
+        "rights of data principals": "The statutory entitlements of individuals regarding their personal data, including the right to access summary information, right to correction and erasure, and right to grievance redressal."
+      },
+      "scenarios": [
+        "A person finds that a company shared their personal data with a third party without consent.",
+        "An app seems to be collecting more personal information than necessary for its function.",
+        "A retail application collects continuous background geolocation from users without displaying any privacy disclosure or obtaining consent.",
+        "An individual requests a telecom company to delete his obsolete financial identity records after closing his subscription account."
+      ]
+    },
+    "Legal Documentation": {
+      "known_acts": [],
+      "concepts": {
+        "reading a contract clause": "Understanding a clause requires identifying the parties, the obligation created, any conditions or triggers, and consequences of non-compliance.",
+        "affidavits": "A sworn written statement of facts, used for various legal and administrative purposes, whose accuracy the person swearing it is legally responsible for.",
+        "power of attorney": "A legal document authorizing one person to act on behalf of another in specified matters, which can be general or limited in scope.",
+        "indemnity and liability limitation clauses": "Standard contractual clauses defining allocation of risk between parties, where indemnity obligates one party to compensate for third-party loss, while limitation of liability caps monetary recovery to agreed ceilings.",
+        "governing law and exclusive jurisdiction clauses": "Contractual stipulations designating the substantive legal jurisdiction governing dispute interpretation and conferring exclusive authority upon designated municipal courts.",
+        "termination for cause vs convenience": "Termination for cause permits immediate exit upon material contractual breach or insolvency; termination for convenience allows exit upon serving specified advance written notice without assigning fault.",
+        "stamping and registration evidentiary weight": "The legal requirement that commercial and conveyancing instruments must bear adequate state stamp duty and, where required, registration to be admissible as evidence in civil proceedings."
+      },
+      "scenarios": [
+        "A person is asked to sign a document with an unfamiliar indemnity clause.",
+        "Someone wants to understand what a 'non-refundable deposit' clause actually means for them.",
+        "A software startup evaluates a master services agreement containing an unlimited indemnity clause for minor service delays.",
+        "A party seeks to enforce an un-stamped written lease agreement before a civil court in an eviction dispute."
+      ]
+    },
+    "Court Procedures": {
+      "known_acts": [],
+      "concepts": {
+        "hierarchy of courts": "India generally has a hierarchy consisting of the Supreme Court, High Courts, and subordinate/district courts, along with specialized tribunals for specific subject matters.",
+        "filing a case": "Filing typically involves preparing a plaint/complaint/petition, paying applicable court fees, and following jurisdictional and procedural rules of the relevant court.",
+        "appeals and revisions": "Parties dissatisfied with a lower court's decision may generally have a right or opportunity to appeal to a higher forum, subject to specific conditions and timelines.",
+        "pecuniary and territorial jurisdiction": "The legal competence of a court to hear a dispute based on the monetary value of the claim (pecuniary) and the geographical nexus where the cause of action arose or the defendant resides (territorial).",
+        "interim application vs main suit": "An interim application seeks provisional emergency relief during the ongoing proceeding, whereas the main suit determines substantive underlying rights through full trial.",
+        "court fees and in forma pauperis suits": "Procedural provisions requiring ad valorem or fixed court fees upon plaints, with legal exemptions allowing indigent persons without means to litigate without advance fee payments.",
+        "caveat petition": "A statutory preemptory notice filed in court by an anticipated party requesting that no ex-parte interim order be passed against them without advance notice and opportunity of hearing."
+      },
+      "scenarios": [
+        "A person wants to understand which court has jurisdiction over their dispute.",
+        "Someone wants to know how the appeal process works after losing a case.",
+        "A prospective defendant anticipates that an estranged partner will seek an ex-parte stay order against bank accounts and wishes to ensure a hearing before any order is made.",
+        "A plaintiff files a money recovery suit in a city where neither the defendant resides nor any commercial transaction occurred."
+      ]
+    },
+    "Alternative Dispute Resolution": {
+      "known_acts": [
+        "Arbitration and Conciliation Act, 1996"
+      ],
+      "concepts": {
+        "arbitration vs litigation": "Arbitration is a private dispute-resolution process agreed to by parties, often faster and more confidential than court litigation, resulting in a binding arbitral award.",
+        "mediation": "A voluntary, non-binding process in which a neutral third party helps disputing parties reach a mutually acceptable settlement.",
+        "lok adalat": "A forum for amicable settlement of disputes, particularly suited to compoundable and certain other categories of cases.",
+        "arbitration agreement and section 8 referral": "A written agreement between parties to submit commercial disputes to arbitration, which obligates judicial courts to refer parties to arbitration when an action is brought in breach of the clause.",
+        "grounds for challenging an arbitral award": "Narrow statutory grounds upon which an Indian court may set aside an arbitral award, including lack of proper notice, dispute outside scope, arbitrator bias, or patent illegality conflicting with public policy.",
+        "Lok Adalat settlement and finality": "A statutory alternative dispute forum presided over by judicial officers and legal experts whose awards are deemed civil court decrees, final and non-appealable, with refund of court fees upon settlement.",
+        "court-annexed vs private mediation": "Court-annexed mediation is referred by judges during litigation to resolve pending suits; private mediation is initiated voluntarily by contracting parties before commencing litigation."
+      },
+      "scenarios": [
+        "Two businesses want to resolve a contractual dispute without going to court.",
+        "A person wants to understand whether their contract's arbitration clause prevents them from suing in court.",
+        "A company files a civil suit despite an explicit arbitration clause in the commercial agreement, and the counterparty seeks reference to arbitration.",
+        "Parties in a prolonged property partition suit reach an amicable settlement before a National Lok Adalat and ask whether the order can be appealed."
+      ]
+    },
+    "Legal Terminology": {
+      "known_acts": [],
+      "concepts": {
+        "plaintiff vs defendant": "In civil cases, the plaintiff is the party who initiates the suit, and the defendant is the party against whom the claim is brought.",
+        "petitioner vs respondent": "In writ and certain other proceedings, the petitioner brings the petition and the respondent is the party against whom relief is sought.",
+        "ex parte": "A proceeding or order made in the absence of, or without notice to, one of the parties.",
+        "locus standi": "The legal standing or right of an individual to bring an action before a court, requiring demonstrable direct injury or grievance, relaxed in Public Interest Litigation (PIL) matters.",
+        "prima facie": "A standard of proof at initial stages denoting evidence that is sufficient on its face to establish a fact or raise a presumption of liability unless rebutted.",
+        "sub judice and contempt of court": "The principle that matters actively pending judicial determination must not be publicly pre-judged or interfered with in a manner that obstructs or prejudices the fair administration of justice.",
+        "ultra vires": "Acts, regulations, or decisions taken by a statutory authority, corporation, or public official that exceed the scope of powers granted by law or the governing charter, rendering them void.",
+        "suo motu cognizance": "The legal power of a court or tribunal to initiate proceedings on its own initiative without a formal complaint or petition, typically triggered by media reports or acute public concern."
+      },
+      "scenarios": [
+        "A public activist petitions the High Court to halt illegal tree felling in a public park and is questioned on locus standi.",
+        "A municipal authority passes a demolition order exceeding the powers codified in the state municipal statute."
+      ]
+    },
+    "Case-law reasoning": {
+      "known_acts": [],
+      "concepts": {
+        "ratio decidendi": "The binding legal principle underlying a court's decision, as distinct from observations that are not essential to the decision (obiter dicta).",
+        "precedent and stare decisis": "The principle that courts generally follow previously decided cases on similar facts to ensure consistency, with higher-court decisions binding on lower courts within the same jurisdiction.",
+        "ratio decidendi vs obiter dictum": "The ratio decidendi is the legal principle or rationale essential to resolving the core issue, which constitutes binding precedent; obiter dicta are incidental judicial remarks not necessary to the decision, holding persuasive value.",
+        "stare decisis and binding precedent hierarchy": "The doctrine of judicial precedent where decisions of the Supreme Court are binding on all courts across India, and High Court decisions bind subordinate courts within their respective territorial jurisdictions.",
+        "distinguishing a precedent on facts": "The judicial practice of demonstrating that a cited precedent does not govern the current case because material factual differences require a different legal standard.",
+        "per incuriam judgment": "A judicial decision rendered in ignorance of or failure to consider an applicable statutory provision or binding precedent of a higher bench, which loses binding authority."
+      },
+      "scenarios": [
+        "A student wants to understand why a lower court must follow a Supreme Court decision on a similar issue.",
+        "A trial court judge is cited two conflicting judgments from the High Court and the Supreme Court on identical statutory interpretation.",
+        "A defense advocate seeks to show that a landmark ruling cited by the prosecution involved fundamentally distinct facts."
+      ]
+    },
+    "Scenario-based legal analysis": {
+      "known_acts": [],
+      "concepts": {
+        "issue-spotting": "Identifying the relevant legal questions raised by a given set of facts before analyzing rights, obligations, and possible outcomes.",
+        "weighing competing considerations": "Many real-world legal situations involve balancing multiple valid interests or provisions, requiring careful analysis rather than a single blanket answer.",
+        "issue spotting in mixed civil-criminal facts": "The analytical process of dissecting a single factual dispute into its separate civil breach (e.g., contract breach) and criminal liability (e.g., criminal breach of trust or cheating) components.",
+        "mitigation of damages": "The common-law duty resting upon an aggrieved party suffering contractual or tortious breach to take reasonable practical steps to minimize their resulting loss.",
+        "burden of proof in civil vs criminal standards": "In civil disputes, allegations are determined on a preponderance of probabilities; in criminal prosecutions, the State must establish guilt beyond reasonable doubt."
+      },
+      "scenarios": [
+        "A customer pays an upfront deposit for custom machinery that is never delivered, and the vendor absconds with the funds.",
+        "An employer sues an ex-employee for damages after finding the employee accepted a position with an industry competitor."
+      ]
+    }
+  }
+}

@@ -1,0 +1,206 @@
+/* ==========================================================================
+   LEGAL AI — Base & Global Styles
+   ========================================================================== */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  background-color: var(--color-bg-canvas);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography styles per §4 */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.text-display {
+  font-family: var(--font-serif);
+  font-size: var(--text-display);
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+.text-h1 {
+  font-family: var(--font-serif);
+  font-size: var(--text-h1);
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.text-h2 {
+  font-family: var(--font-serif);
+  font-size: var(--text-h2);
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.text-h3 {
+  font-family: var(--font-sans);
+  font-size: var(--text-h3);
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.text-body {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: 1.6;
+}
+
+.text-body-lg {
+  font-family: var(--font-sans);
+  font-size: var(--text-body-lg);
+  line-height: 1.65;
+}
+
+.text-caption {
+  font-family: var(--font-sans);
+  font-size: var(--text-caption);
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.text-label {
+  font-family: var(--font-sans);
+  font-size: var(--text-label);
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.text-button {
+  font-family: var(--font-sans);
+  font-size: var(--text-button);
+  line-height: 1.2;
+  font-weight: 500;
+}
+
+.text-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: 1.5;
+}
+
+/* Links */
+a {
+  color: var(--color-text-link);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* Focus Visible: 2px outline, 2px offset (§18) */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-ink-500);
+  outline-offset: 2px;
+}
+
+[data-theme="dark"] button:focus-visible,
+[data-theme="dark"] input:focus-visible,
+[data-theme="dark"] select:focus-visible,
+[data-theme="dark"] textarea:focus-visible,
+[data-theme="dark"] a:focus-visible,
+[data-theme="dark"] [tabindex]:focus-visible {
+  outline: 2px solid var(--color-ink-300);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: var(--radius-sm);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-strong);
+}
+
+/* Selection Color for AI contexts per §15.7 */
+::selection {
+  background: var(--color-ai-100);
+  color: var(--color-text-primary);
+}
+
+/* Common Card Base */
+.card-base {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-0);
+}
+
+/* Interactive Card Base */
+.card-interactive {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-0);
+  cursor: pointer;
+  transition: box-shadow var(--duration-fast) var(--easing-standard),
+              border-color var(--duration-fast) var(--easing-standard);
+}
+.card-interactive:hover {
+  box-shadow: var(--elevation-1);
+  border-color: var(--color-border-default);
+}
+
+/* Form Input Base */
+.input-base {
+  width: 100%;
+  background-color: var(--color-bg-surface-sunken);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  color: var(--color-text-primary);
+  transition: border-color var(--duration-fast) var(--easing-standard);
+}
+.input-base:hover {
+  border-color: var(--color-border-strong);
+}
+.input-base:focus {
+  border-color: var(--color-ink-500);
+  outline: 2px solid var(--color-ink-500);
+  outline-offset: 1px;
+}
+.input-base::placeholder {
+  color: var(--color-text-muted);
+}
+.input-base:disabled {
+  background-color: var(--color-bg-canvas);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+/* Container */
+.container {
+  max-width: var(--max-content-width);
+  margin: 0 auto;
+  padding: 0 var(--space-lg);
+}
