@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, Send, X, ArrowUpRight } from 'lucide-react';
 import { Button } from '../common/Button';
+import { LegalAnswerRenderer } from './LegalAnswerRenderer';
 
 export const SelectedTextAskAI = ({ 
   containerRef, 
@@ -74,9 +75,9 @@ export const SelectedTextAskAI = ({
 
     try {
       const response = await onAskFollowUp({ selectedText, question: userQ });
-      setThread([...newThread, { role: 'assistant', text: response.content }]);
+      setThread([...newThread, { role: 'assistant', text: response.content, sources: response.sources || [] }]);
     } catch (err) {
-      setThread([...newThread, { role: 'assistant', text: "Verification note: Unable to retrieve supplementary citations." }]);
+      setThread([...newThread, { role: 'assistant', text: "Verification note: Unable to retrieve supplementary citations.", sources: [] }]);
     } finally {
       setLoading(false);
     }
@@ -251,22 +252,51 @@ export const SelectedTextAskAI = ({
               </div>
             ) : (
               thread.map((msg, i) => (
-                <div
-                  key={i}
-                  style={{
-                    alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                    maxWidth: '88%',
-                    padding: '6px 8px',
-                    borderRadius: msg.role === 'user' ? '8px 8px 2px 8px' : '8px 8px 8px 2px',
-                    backgroundColor: msg.role === 'user' ? 'var(--color-bg-surface-sunken)' : 'var(--color-ai-100)',
-                    border: msg.role === 'user' ? '1px solid var(--color-border-subtle)' : '1px solid var(--color-ai-border)',
-                    fontSize: '12px',
-                    lineHeight: 1.4,
-                    color: 'var(--color-text-primary)'
-                  }}
-                >
-                  {msg.text}
-                </div>
+                msg.role === 'user' ? (
+                  <div
+                    key={i}
+                    style={{
+                      alignSelf: 'flex-end',
+                      maxWidth: '88%',
+                      padding: '6px 8px',
+                      borderRadius: '8px 8px 2px 8px',
+                      backgroundColor: 'var(--color-bg-surface-sunken)',
+                      border: '1px solid var(--color-border-subtle)',
+                      fontSize: '12px',
+                      lineHeight: 1.4,
+                      color: 'var(--color-text-primary)'
+                    }}
+                  >
+                    {msg.text}
+                  </div>
+                ) : (
+                  <div
+                    key={i}
+                    style={{
+                      alignSelf: 'flex-start',
+                      maxWidth: '96%',
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px 8px 8px 2px',
+                      backgroundColor: 'var(--color-bg-surface)',
+                      border: '1px solid var(--color-ai-border)',
+                      fontSize: '12px',
+                      lineHeight: 1.5,
+                      boxShadow: 'var(--elevation-1)'
+                    }}
+                  >
+                    <LegalAnswerRenderer
+                      message={{
+                        id: `ctx-${i}`,
+                        role: 'assistant',
+                        content: msg.text,
+                        sources: msg.sources || [],
+                        reliability: 'supported'
+                      }}
+                      compact={true}
+                    />
+                  </div>
+                )
               ))
             )}
             {loading && (

@@ -23,6 +23,7 @@ import {
 import { Button } from '../common/Button';
 import { ReliabilityBadge } from '../common/Badge';
 import { SelectedTextAskAI } from './SelectedTextAskAI';
+import { LegalAnswerRenderer } from './LegalAnswerRenderer';
 import { INITIAL_CONVERSATIONS } from '../../mock/mockAI';
 import { INITIAL_CASES } from '../../mock/mockCases';
 import { aiService } from '../../services/aiService';
@@ -55,8 +56,17 @@ export const AIAssistantView = ({
 
   const activeConv = conversations.find(c => c.id === activeConvId) || conversations[0];
 
+  const scrollToBottom = (smooth = true) => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto'
+      });
+    }
+  };
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    scrollToBottom(false);
   }, [activeConv.messages, streamingText]);
 
   // Context mode selection helper
@@ -284,9 +294,11 @@ export const AIAssistantView = ({
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '260px 1fr',
-        height: 'calc(100vh - var(--header-height) - 40px)',
-        minHeight: '620px',
+        gridTemplateColumns: '260px minmax(0, 1fr)',
+        gridTemplateRows: '100%',
+        flex: 1,
+        height: '100%',
+        minHeight: 0,
         backgroundColor: 'var(--color-bg-surface)',
         border: '1px solid var(--color-border-subtle)',
         borderRadius: 'var(--radius-lg)',
@@ -300,7 +312,10 @@ export const AIAssistantView = ({
           backgroundColor: 'var(--color-bg-surface-sunken)',
           borderRight: '1px solid var(--color-border-subtle)',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          height: '100%',
+          minHeight: 0,
+          overflow: 'hidden'
         }}
       >
         {/* Rail Top Action */}
@@ -336,7 +351,7 @@ export const AIAssistantView = ({
         </div>
 
         {/* History List */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-xs)' }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 'var(--space-xs)' }}>
           <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', padding: '6px 8px 4px 8px', fontWeight: 600 }}>
             Recent Legal Inquiries
           </div>
@@ -387,11 +402,22 @@ export const AIAssistantView = ({
       </div>
 
       {/* 2. Main AI Panel */}
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          minHeight: 0,
+          maxHeight: '100%',
+          overflow: 'hidden',
+          position: 'relative'
+        }}
+      >
         
         {/* Context Header Strip (§15.2: persistent, --color-ai-100 bg, 1px --color-ai-border bottom edge) */}
         <div
           style={{
+            flexShrink: 0,
             backgroundColor: 'var(--color-ai-100)',
             borderBottom: '1px solid var(--color-ai-border)',
             padding: 'var(--space-xs) var(--space-md)',
@@ -553,6 +579,7 @@ export const AIAssistantView = ({
         {showPersonalization && (
           <div
             style={{
+              flexShrink: 0,
               backgroundColor: 'var(--color-bg-surface-sunken)',
               borderBottom: '1px solid var(--color-border-subtle)',
               padding: 'var(--space-sm) var(--space-md)',
@@ -663,7 +690,8 @@ export const AIAssistantView = ({
         <div
           ref={chatContainerRef}
           style={{
-            flex: 1,
+            flex: '1 1 0',
+            minHeight: 0,
             overflowY: 'auto',
             padding: 'var(--space-lg)',
             display: 'flex',
@@ -711,190 +739,75 @@ export const AIAssistantView = ({
                 }}
               >
                 {/* Bubble Container */}
-                <div
-                  style={{
-                    backgroundColor: isLawyer ? 'var(--color-bg-surface-sunken)' : 'var(--color-ai-100)',
-                    border: isLawyer ? '1px solid var(--color-border-subtle)' : '1px solid var(--color-ai-border)',
-                    borderRadius: isLawyer ? 'var(--radius-chat-bubble-lawyer)' : 'var(--radius-chat-bubble-ai)',
-                    padding: 'var(--space-md)',
-                    boxShadow: 'var(--elevation-0)',
-                    position: 'relative'
-                  }}
-                >
-                  {/* AI Message Avatar Badge (§3.5: 3 strokes) */}
-                  {!isLawyer && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                      <div
-                        style={{
-                          width: '22px',
-                          height: '22px',
-                          borderRadius: '50%',
-                          backgroundColor: 'var(--color-ai-500)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#FFFFFF',
-                          flexShrink: 0
-                        }}
-                      >
-                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                          <path d="M3 5H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                          <path d="M3 8H10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                          <path d="M3 11H8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                        </svg>
-                      </div>
-                      <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-ai-500)', letterSpacing: '0.02em' }}>
-                        Legal AI Synthesizer
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Message Body Content (§4.3: --text-body-lg for AI, line length capped) */}
+                {isLawyer ? (
                   <div
                     style={{
-                      fontFamily: 'var(--font-sans)',
-                      fontSize: isLawyer ? 'var(--text-body)' : 'var(--text-body-lg)',
-                      color: 'var(--color-text-primary)',
-                      lineHeight: 1.6,
-                      whiteSpace: 'pre-line'
+                      backgroundColor: 'var(--color-bg-surface-sunken)',
+                      border: '1px solid var(--color-border-subtle)',
+                      borderRadius: 'var(--radius-chat-bubble-lawyer)',
+                      padding: 'var(--space-md)',
+                      boxShadow: 'var(--elevation-0)',
+                      position: 'relative'
                     }}
                   >
-                    {msg.content}
-                  </div>
-
-                  {/* Sources Used Strip (§15.8) */}
-                  {!isLawyer && msg.sources && msg.sources.length > 0 && (
-                    <div style={{ marginTop: 'var(--space-md)', paddingTop: 'var(--space-xs)', borderTop: '1px solid var(--color-ai-border)' }}>
-                      <button
-                        onClick={() => setExpandedSources(prev => ({ ...prev, [msg.id]: !prev[msg.id] }))}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--color-text-link)',
-                          fontSize: 'var(--text-caption)',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          fontWeight: 500,
-                          padding: 0
-                        }}
-                      >
-                        <span>{msg.sources.length} sources used</span>
-                        {expandedSources[msg.id] ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                      </button>
-
-                      {/* Expandable Citation Cards Stack */}
-                      {expandedSources[msg.id] && (
-                        <div style={{ marginTop: 'var(--space-xs)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          {msg.sources.map((src) => (
-                            <div
-                              key={src.id}
-                              style={{
-                                padding: '8px 10px',
-                                backgroundColor: 'var(--color-bg-surface)',
-                                borderRadius: 'var(--radius-sm)',
-                                borderLeft: '3px solid var(--color-success-text)', // colored by confidence (§15.8)
-                                borderTop: '1px solid var(--color-border-subtle)',
-                                borderRight: '1px solid var(--color-border-subtle)',
-                                borderBottom: '1px solid var(--color-border-subtle)',
-                                fontSize: 'var(--text-caption)'
-                              }}
-                            >
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>
-                                  {src.title}
-                                </div>
-                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                                  {src.reference}
-                                </span>
-                              </div>
-                              <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', fontStyle: 'italic', marginTop: '2px' }}>
-                                "{src.excerpt}"
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* AI Reliability Indicator Line (§15.9) */}
-                      <div style={{ marginTop: 'var(--space-xs)' }}>
-                        <ReliabilityBadge
-                          reliability={msg.reliability || 'supported'}
-                          label={msg.reliabilityLabel}
-                        />
-                      </div>
+                    <div
+                      style={{
+                        fontFamily: 'var(--font-sans)',
+                        fontSize: 'var(--text-body)',
+                        color: 'var(--color-text-primary)',
+                        lineHeight: 1.6,
+                        whiteSpace: 'pre-line'
+                      }}
+                    >
+                      {msg.content}
                     </div>
-                  )}
-                </div>
-
-                {/* Message Actions Row (visible on hover or static, low emphasis per §15.4) */}
-                {!isLawyer && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginTop: '4px', paddingLeft: '4px' }}>
-                    <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
-                      {msg.timestamp}
-                    </span>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(msg.content)}
-                      title="Copy response"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '2px' }}
-                    >
-                      <Copy size={13} />
-                    </button>
-                    <button
-                      onClick={() => alert("Simulating re-synthesis with alternate legal precedents…")}
-                      title="Regenerate"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '2px' }}
-                    >
-                      <RotateCw size={13} />
-                    </button>
-                    <button
-                      title="Helpful citation"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '2px' }}
-                    >
-                      <ThumbsUp size={13} />
-                    </button>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      backgroundColor: 'var(--color-bg-surface)',
+                      border: '1px solid var(--color-ai-border)',
+                      borderRadius: 'var(--radius-chat-bubble-ai)',
+                      padding: 'var(--space-md) var(--space-lg)',
+                      boxShadow: 'var(--elevation-1)',
+                      position: 'relative',
+                      width: '100%'
+                    }}
+                  >
+                    <LegalAnswerRenderer message={msg} isStreaming={false} />
                   </div>
                 )}
               </div>
             );
           })}
 
-          {/* Active Streaming Token Render with Blinking Cursor Block (§15.4) */}
+          {/* Active Streaming Token Render with LegalAnswerRenderer */}
           {isGenerating && streamingText && (
             <div
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignSelf: 'flex-start',
-                maxWidth: '85%'
+                maxWidth: '85%',
+                width: '100%'
               }}
             >
               <div
                 style={{
-                  backgroundColor: 'var(--color-ai-100)',
+                  backgroundColor: 'var(--color-bg-surface)',
                   border: '1px solid var(--color-ai-border)',
                   borderRadius: 'var(--radius-chat-bubble-ai)',
-                  padding: 'var(--space-md)',
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: 'var(--text-body-lg)',
-                  color: 'var(--color-text-primary)',
-                  lineHeight: 1.6,
-                  whiteSpace: 'pre-line'
+                  padding: 'var(--space-md) var(--space-lg)',
+                  boxShadow: 'var(--elevation-1)'
                 }}
               >
-                {streamingText}
-                {/* 2px x 16px blinking block cursor per §15.4 */}
-                <span
-                  style={{
-                    display: 'inline-block',
-                    width: '2px',
-                    height: '16px',
-                    backgroundColor: 'var(--color-ai-500)',
-                    verticalAlign: 'text-bottom',
-                    marginLeft: '2px',
-                    animation: 'blink 1s step-end infinite'
+                <LegalAnswerRenderer
+                  message={{
+                    id: 'streaming-active',
+                    role: 'assistant',
+                    content: streamingText
                   }}
+                  isStreaming={true}
                 />
               </div>
             </div>
@@ -915,6 +828,7 @@ export const AIAssistantView = ({
         <form
           onSubmit={handleSendMessage}
           style={{
+            flexShrink: 0,
             padding: 'var(--space-md)',
             backgroundColor: 'var(--color-bg-surface)',
             borderTop: '1px solid var(--color-border-subtle)',
