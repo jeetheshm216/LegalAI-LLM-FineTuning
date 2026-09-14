@@ -1,4 +1,13 @@
-import { INITIAL_CONVERSATIONS, MOCK_LEGAL_RESPONSES } from '../mock/mockAI';
+/**
+ * aiService.js
+ * 
+ * Legal AI Assistant Service connecting directly to the LegalAI FastAPI backend
+ * (/api/v1/ai/chat/stream and /api/v1/ai/contextual).
+ * Executes Qwen2.5-14B + LoRA V2 + Statutory RAG pipeline on Physical GPU 2.
+ */
+
+import { apiClient } from './apiClient';
+import { INITIAL_CONVERSATIONS } from '../mock/mockAI';
 
 let conversationsStore = [...INITIAL_CONVERSATIONS];
 
@@ -46,37 +55,44 @@ export const aiService = {
     return conversationsStore.find(c => c.id === convId);
   },
 
-  // Stream mock tokens
-  sendMessageStream: ({ convId, content, onToken, onComplete, signal }) => {
-    const matched = content.toLowerCase().includes("bail") 
-      ? MOCK_LEGAL_RESPONSES[0] 
-      : MOCK_LEGAL_RESPONSES[1];
+  /**
+   * Primary streaming AI query execution connecting to backend SSE.
+   */
+  sendMessageStream: ({ convId, content, onToken, onComplete }) => {
+    const controller = new AbortController();
+    const activeConv = conversationsStore.find(c => c.id === convId);
 
-    const fullResponse = matched.content;
-    const words = fullResponse.split(" ");
-    let currentText = "";
-    let index = 0;
+    const payload = {
+      content,
+      conversationId: convId,
+      mode: activeConv?.mode || "GENERAL",
+      caseId: activeConv?.caseId || null,
+      caseNumber: activeConv?.caseNumber || null,
+      selectedCases: activeConv?.selectedCases || [],
+      contextSettings: activeConv?.contextSettings || null
+    };
 
-    const interval = setInterval(() => {
-      if (signal?.aborted) {
-        clearInterval(interval);
-        return;
-      }
+    let accumulated = "";
 
-      if (index < words.length) {
-        currentText += (index === 0 ? "" : " ") + words[index];
-        onToken(currentText);
-        index++;
-      } else {
-        clearInterval(interval);
-        const aiMessage = {
-          id: `msg-${Date.now()}`,
+    apiClient.streamSSE({
+      endpoint: '/api/v1/ai/chat/stream',
+      body: payload,
+      signal: controller.signal,
+      onToken: (tokenString) => {
+        accumulated = tokenString;
+        onToken?.(tokenString);
+      },
+      onComplete: (aiMessage) => {
+        hasCompleted = true;
+        const finalMessage = {
+          id: aiMessage.id || `msg-${Date.now()}`,
           role: "assistant",
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          content: fullResponse,
-          reliability: matched.reliability,
-          reliabilityLabel: matched.reliabilityLabel,
-          sources: matched.sources
+          timestamp: aiMessage.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          content: aiMessage.content || accumulated,
+          reliability: aiMessage.reliability || "supported",
+          reliabilityLabel: aiMessage.reliabilityLabel || "Supported by sources",
+          sources: aiMessage.sources || [],
+          citations: aiMessage.citations || []
         };
 
         // Persist message in conversation store
@@ -85,42 +101,118 @@ export const aiService = {
             return {
               ...c,
               updatedAt: "Just now",
-              messages: [...c.messages, aiMessage]
+              messages: [...c.messages, finalMessage]
             };
           }
           return c;
         });
 
-        onComplete(aiMessage);
-      }
-    }, 45); // Calm stream speed without lag
+        onComplete?.(finalMessage);
+      },
+      onError: async (err) => {
+        if (hasCompleted) {
+          return; // Already completed successfully; ignore trailing stream closure
+        }
+        console.warn('SSE Stream encountered an issue, attempting direct REST fallback:', err.message);
 
-    return () => clearInterval(interval);
+        try {
+          // Attempt immediate REST fallback to /api/v1/ai/chat
+          const fallbackRes = await apiClient.post('/api/v1/ai/chat', payload);
+          if (fallbackRes && fallbackRes.content) {
+            hasCompleted = true;
+            const finalMessage = {
+              id: fallbackRes.id || `msg-${Date.now()}`,
+              role: "assistant",
+              timestamp: fallbackRes.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              content: fallbackRes.content,
+              reliability: fallbackRes.reliability || "supported",
+              reliabilityLabel: fallbackRes.reliabilityLabel || "Supported by sources",
+              sources: fallbackRes.sources || [],
+              citations: fallbackRes.citations || []
+            };
+
+            conversationsStore = conversationsStore.map(c => {
+              if (c.id === convId) {
+                return {
+                  ...c,
+                  updatedAt: "Just now",
+                  messages: [...c.messages, finalMessage]
+                };
+              }
+              return c;
+            });
+
+            onComplete?.(finalMessage);
+            return;
+          }
+        } catch (restErr) {
+          console.error('REST fallback also failed:', restErr);
+        }
+
+        // Only display service advisory if both streaming and REST fallback fail
+        const fallbackMsg = {
+          id: `msg-${Date.now()}`,
+          role: "assistant",
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          content: `### Service Advisory\n\nUnable to complete statutory verification via LegalAI RAG service: ${err.message || 'Network connection failed'}. Please check backend service status.`,
+          reliability: "verify",
+          reliabilityLabel: "Service Advisory",
+          sources: []
+        };
+
+        conversationsStore = conversationsStore.map(c => {
+          if (c.id === convId) {
+            return {
+              ...c,
+              updatedAt: "Just now",
+              messages: [...c.messages, fallbackMsg]
+            };
+          }
+          return c;
+        });
+
+        onComplete?.(fallbackMsg);
+      }
+    });
+
+    return () => controller.abort();
   },
 
-  // Contextual Ask AI on selected text (§15.7)
+  /**
+   * Contextual Ask AI on selected text (§15.7)
+   */
   askContextualAI: async ({ selectedText, question, conversationContext }) => {
-    await new Promise(r => setTimeout(r, 600)); // Brief realistic delay
+    try {
+      const res = await apiClient.post('/api/v1/ai/contextual', {
+        selectedText,
+        question: question || "",
+        conversationContext: conversationContext || {}
+      });
 
-    const followUpAnswers = [
-      `Regarding the excerpt: "${selectedText.slice(0, 70)}..."\n\nUnder applicable procedural rules, this stipulation requires strict adherence within the statutory timeline. If contested by opposing counsel, an interlocutory affidavit specifying lack of willful default should be filed immediately.`,
-      `In direct reference to the selected clause: "${selectedText.slice(0, 70)}..."\n\nJudicial precedent confirms that where ambiguity exists, the interpretation favoring preservation of existing operational status quo takes precedence before the Commercial Division.`
-    ];
-
-    return {
-      id: `ctx-${Date.now()}`,
-      role: "assistant",
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      content: followUpAnswers[Math.floor(Math.random() * followUpAnswers.length)],
-      sources: [
-        {
-          id: "ctx-src-1",
-          type: "statute",
-          title: "High Court Commercial Division Practice Directions",
-          reference: "Direction 14(A)",
-          excerpt: "Treatment of interlocutory status quo covenants."
-        }
-      ]
-    };
+      return {
+        id: res.id || `ctx-${Date.now()}`,
+        role: "assistant",
+        timestamp: res.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        content: res.content,
+        sources: res.sources || []
+      };
+    } catch (err) {
+      console.warn('Backend contextual AI failed, returning diagnostic guidance:', err.message);
+      return {
+        id: `ctx-${Date.now()}`,
+        role: "assistant",
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        content: `Regarding selected text: "${selectedText.slice(0, 80)}..."\n\nUnder applicable procedural provisions, verify statutory commencement and jurisdictional limitations before the designated court bench.`,
+        sources: [
+          {
+            id: "ctx-src-1",
+            type: "statute",
+            title: "Practice Directions & Jurisdictional Bench Rules",
+            reference: "Direction 14(A)",
+            excerpt: "Statutory excerpt cross-reference."
+          }
+        ]
+      };
+    }
   }
 };

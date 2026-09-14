@@ -77,3 +77,46 @@ data/legal_train_backup.jsonl
 data/legal_train_cleaned.jsonl
 data/legal_train.jsonl
 data/raw/
+
+# ==========================================
+# Database journals & SQLite temporary files
+# ==========================================
+*.db-shm
+*.db-wal
+
+# ==========================================
+# Local/Private Datasets & Documents
+# ==========================================
+data/case_analysis/
+data/case_documents/
+data/external/
+data/legalai_1000_realistic_lawyer_queries.jsonl
+
+# ==========================================
+# Benchmark raw line dumps (JSONL in results)
+# ==========================================
+results/**/*.jsonl
+
+# ==========================================
+# Transient inspection & search scratch scripts
+# ==========================================
+acquire_and_normalize_datasets.py
+check_cells.py
+check_filepath.py
+check_hf.py
+check_pattern_counts.py
+check_prarabdha.py
+clean_and_deduplicate_dataset.py
+explore_hf_datasets.py
+find_indiclegalqa.py
+hf_search_direct.py
+inspect_indic_bench.py
+inspect_notebook.py
+perform_full_dataset_audit.py
+query_arxiv_legal.py
+sample_indianlegalqa.py
+sample_indic.py
+search_hf_all.py
+search_hf_more.py
+search_indiclegalqa_deep.py
+search_provenance.py

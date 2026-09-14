@@ -203,6 +203,13 @@ export const LegalAnswerRenderer = ({
   const isOutOfCorpus = parsed.isOutOfCorpus || evidence_status === 'OUT_OF_CORPUS';
   const isTemporal = parsed.isTemporal || confidence_status === 'TEMPORAL_TRANSITION_APPLIED';
 
+  // Conversational response check
+  const isConversational = 
+    message.type === 'conversational' || 
+    message.query_type === 'CONVERSATIONAL' || 
+    confidence_status === 'CONVERSATIONAL' || 
+    (sources.length === 0 && citations.length === 0 && !isOutOfCorpus && !isTemporal);
+
   // Handle Copy
   const handleCopy = () => {
     navigator.clipboard.writeText(content);
@@ -299,8 +306,8 @@ export const LegalAnswerRenderer = ({
           )}
         </div>
 
-        {/* Reliability Pill Badge */}
-        {!isStreaming && (
+        {/* Reliability Pill Badge (Only for verified legal responses) */}
+        {!isStreaming && !isConversational && (
           <div
             style={{
               display: 'inline-flex',
@@ -343,7 +350,7 @@ export const LegalAnswerRenderer = ({
       {!isStreaming && isOutOfCorpus && (
         <div
           style={{
-            padding: '12px 14px',
+            padding: '14px 16px',
             borderRadius: 'var(--radius-md)',
             backgroundColor: 'var(--color-warning-wash)',
             border: '1px solid var(--color-warning-border)',
@@ -388,8 +395,13 @@ export const LegalAnswerRenderer = ({
         </div>
       )}
 
-      {/* 5. Main Structured Legal Answer (Only for non-out-of-corpus answers) */}
+      {/* 5. Main Content: Clean Chatbot view for Conversational, or Structured Legal Synthesis */}
       {!isStreaming && !isOutOfCorpus && (
+        isConversational ? (
+          <div style={{ fontSize: 'var(--text-body-lg)', color: 'var(--color-text-primary)', lineHeight: 1.65, whiteSpace: 'pre-line' }}>
+            {renderInlineText(content)}
+          </div>
+        ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
           {/* Applicable Provision Banner */}
           {applicableTitle && (
@@ -487,6 +499,7 @@ export const LegalAnswerRenderer = ({
             </div>
           )}
         </div>
+        )
       )}
 
       {/* 6. Authoritative Sources Used Strip & Cards */}

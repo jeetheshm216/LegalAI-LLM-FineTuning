@@ -299,7 +299,16 @@ export function App() {
         )}
 
         {activeView === 'ai' && (
-          <div className="container" style={{ padding: 'var(--space-md)' }}>
+          <div
+            className="container"
+            style={{
+              padding: 'var(--space-md)',
+              height: 'calc(100vh - var(--header-height))',
+              display: 'flex',
+              flexDirection: 'column',
+              boxSizing: 'border-box'
+            }}
+          >
             <AIAssistantView
               initialMode="GENERAL"
               allCases={cases}

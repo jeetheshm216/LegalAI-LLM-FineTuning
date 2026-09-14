@@ -1,0 +1,60 @@
+# configs/sft_case_analysis_v1.yaml
+# LegalAI Case Analysis V1 SFT Training Configuration on NVIDIA B200 (Physical GPU 2)
+# Base Model: Qwen/Qwen2.5-14B-Instruct
+# Output: outputs/qwen14b-case-analysis-v1
+
+model:
+  model_name_or_path: "Qwen/Qwen2.5-14B-Instruct"
+  trust_remote_code: false
+  torch_dtype: "bfloat16"
+  use_cache: false
+
+data:
+  train_file: "data/case_analysis/case_analysis_train.jsonl"
+  validation_file: "data/case_analysis/case_analysis_validation.jsonl"
+  max_seq_length: 2048
+
+lora:
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  bias: "none"
+  task_type: "CAUSAL_LM"
+
+training:
+  output_dir: "outputs/qwen14b-case-analysis-v1"
+  num_train_epochs: 1.0
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 4
+  learning_rate: 0.00015
+  lr_scheduler_type: "cosine"
+  warmup_steps: 10
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  logging_steps: 5
+  save_strategy: "steps"
+  save_steps: 50
+  save_total_limit: 4
+  eval_strategy: "steps"
+  eval_steps: 50
+  load_best_model_at_end: false
+  seed: 42
+
+hardware:
+  bf16: true
+  fp16: false
+  gradient_checkpointing: true
+  dataloader_num_workers: 2
+
+logging:
+  logging_steps: 5
+  report_to: "none"

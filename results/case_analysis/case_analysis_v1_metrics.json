@@ -1,0 +1,111 @@
+{
+  "model": "outputs/qwen14b-case-analysis-v1",
+  "answer_accuracy": 70.0,
+  "safe_handling_score": 0.0,
+  "factual_grounding": 100.0,
+  "evidence_grounding": 78.57142857142857,
+  "citation_accuracy": 100.0,
+  "citation_completeness": 100.0,
+  "contradiction_detection": 100.0,
+  "evidence_gap_detection": 100.0,
+  "argument_quality": 100.0,
+  "counterargument_quality": 100.0,
+  "abstention_correctness": 0.0,
+  "temporal_accuracy": 40.0,
+  "wrong_act_rate": 0.0,
+  "hallucination_rate": 100.0,
+  "category_breakdown": {
+    "01_case_summary": {
+      "probed_count": 1,
+      "has_structured_headings": true,
+      "response_snippet": "FACTS\n- What was the main dispute in the case Selvi vs. Gopalakrishnan Nair (D) Thr. LRs. and Ors.?: The main dispute was regarding the ownership and partition of the suit properties, particularly whether Survey No.988 was part of the properties to b"
+    },
+    "02_evidence_analysis": {
+      "probed_count": 1,
+      "has_structured_headings": true,
+      "response_snippet": "EVIDENCE\n- The supplied case material does not establish additional documentary exhibits.\n\nANALYSIS\n1. Admissibility: Primary documentary evidence on record is admissible subject to formal proof and statutory certification.\n2. Probative Weight: Offic"
+    },
+    "03_evidence_gaps": {
+      "probed_count": 1,
+      "has_structured_headings": true,
+      "response_snippet": "EVIDENCE GAPS\n- Missing primary contracts or contemporaneous written communications between parties.\n- Absence of certified records verifying dates of dispatch and receipt.\n- Uncalled material witnesses whose testimony would resolve disputed factual "
+    },
+    "04_contradictions": {
+      "probed_count": 1,
+      "has_structured_headings": true,
+      "response_snippet": "FACTS\n- What was the primary issue in the case of M/s. Daiichi Sankyo Company Limited vs Oscar Investments Limited & Ors.?: The primary issue was whether the respondents, including Malvinder Mohan Singh and others, were in contempt of court for viola"
+    },
+    "05_strengths": {
+      "probed_count": 1,
+      "has_structured_headings": true,
+      "response_snippet": "FACTS\n- What was the primary legal issue in the case Apollo Institute of Medical Sciences & Research vs. Union of India & Anr.?: The primary legal issue was whether the Central Government's decision to debar the petitioner's medical college from admi"
+    },
+    "06_weaknesses": {
+      "probed_count": 1,
+      "has_structured_headings": true,
+      "response_snippet": "ANALYSIS\nPOTENTIAL VULNERABILITIES:\n- Potential weakness: Heavy reliance on oral assertions where documentary corroboration is thin.\n- Potential risk: Adversary may raise preliminary objections regarding delay, alternative remedy, or jurisdiction.\n- "
+    },
+    "07_arguments": {
+      "probed_count": 1,
+      "has_structured_headings": true,
+      "response_snippet": "ARGUMENTS\nArgument: The client is entitled to the requested legal relief as the impugned action violates statutory mandates and established procedural fairness.\nSupporting facts: The client satisfied all eligibility criteria and complied with all man"
+    },
+    "08_counterarguments": {
+      "probed_count": 1,
+      "has_structured_headings": true,
+      "response_snippet": "COUNTERARGUMENTS\nAdversary's Likely Argument 1: The proceeding is barred by limitation or laches.\nStructured Response: The cause of action is continuous or the delay is sufficiently explained by ongoing representations and lack of formal communicatio"
+    },
+    "09_fact_to_law_mapping": {
+      "probed_count": 1,
+      "has_structured_headings": true,
+      "response_snippet": "FACTS\n- What was the main issue in the case of Shakti Vahini vs Union of India and others?: The main issue was whether the State and Central Governments should take preventive steps to combat honour crimes, including honour killings, and to provide p"
+    },
+    "10_hearing_preparation": {
+      "probed_count": 1,
+      "has_structured_headings": true,
+      "response_snippet": "ANALYSIS\nBENCH-HEARING STRATEGY:\n1. The 2-Minute Opening Pitch: State the impugned order, identify the single fatal statutory defect, and pray for immediate interim relief.\n2. Anticipated Hard Judicial Question: 'Why should this court intervene when "
+    },
+    "11_witness_questions": {
+      "probed_count": 1,
+      "has_structured_headings": true,
+      "response_snippet": "EVIDENCE\n- The supplied case material does not establish additional documentary exhibits.\n\nANALYSIS\nCROSS-EXAMINATION STRATEGY:\n1. Target Line 1 (Timeline & Personal Knowledge): Confront witness with the exact date of receipt of notice; establish tha"
+    },
+    "12_document_review": {
+      "probed_count": 1,
+      "has_structured_headings": true,
+      "response_snippet": "EVIDENCE\n- The supplied case material does not establish additional documentary exhibits.\n\nANALYSIS\nDOCUMENTARY AUDIT:\n1. Execution & Validity: Check whether the agreement/order is executed by an authorized signatory with proper authority.\n2. Stampin"
+    },
+    "13_case_strategy": {
+      "probed_count": 1,
+      "has_structured_headings": true,
+      "response_snippet": "FACTS\n- What was the main issue in the case Avtar Singh vs. Union of India and Ors.?: The main issue was whether the termination of Avtar Singh from service in the CRPF for not disclosing his involvement in a criminal case was justified.\n- Why was Av"
+    },
+    "14_legal_research": {
+      "probed_count": 1,
+      "has_structured_headings": true,
+      "response_snippet": "LEGAL ISSUES\n- Precedential authority governing Civil & Appellate Law.\n\nANALYSIS\nRESEARCH DIRECTIONS:\n1. Identify binding Supreme Court or jurisdictional High Court decisions addressing the exact statutory section in dispute.\n2. Distinguish unfavorab"
+    },
+    "15_general_legal_questions": {
+      "count": 5,
+      "correct": 5,
+      "rate": 100.0
+    },
+    "16_abstention": {
+      "count": 5,
+      "abstained_correctly": 0,
+      "wrong_act_substitutions": 0,
+      "abstention_rate": 0.0
+    },
+    "17_temporal_law": {
+      "count": 5,
+      "temporal_correct": 2,
+      "rate": 40.0
+    },
+    "18_citation_correctness": {
+      "count": 5,
+      "caught_traps": 0,
+      "hallucinated": 5,
+      "hallucination_rate": 100.0
+    }
+  }
+}
