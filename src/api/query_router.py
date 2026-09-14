@@ -72,6 +72,22 @@ class QueryRouter:
         r'\bevidence\s+supports\s+our\s+(?:position|case|argument)\b',
         r'\bwhat\s+evidence\s+supports\b',
         r'\bwhat\s+can\s+you\s+do\s+with\s+this\s+(?:judgment|judgement|case|document|file)\b',
+        # Evidence analysis, verification, gaps, contradictions & hearing prep
+        r'\b(?:what\s+)?evidence\s+is\s+missing\b',
+        r'\bevidence\s+gaps?\b',
+        r'\bcontradictions?\s+(?:exist|between|in)\b',
+        r'\bare\s+there\s+contradictions?\b',
+        r'\bwhat\s+contradictions?\b',
+        r'\bverify\s+before\s+submitting\b',
+        r'\bverif(?:ied|ication)\s+before\s+submitting\b',
+        r'\bis\s+this\s+evidence\s+ready\b',
+        r'\bchain\s+of\s+custody\b',
+        r'\bsupporting\s+documents?\s+(?:are\s+)?referred\s+to\b',
+        r'\bstrengths?\s+and\s+weaknesses?\b',
+        r'\bprepare\s+me\s+for\s+(?:the\s+)?(?:next\s+)?hearing\b',
+        r'\bhearing\s+preparation\b',
+        r'\barguments?\s+(?:can\s+we|to)\s+make\b',
+        r'\bavailable\s+evidence\b',
     ]
 
     # -------------------------------------------------------------------------
@@ -233,6 +249,7 @@ class QueryRouter:
     CONVERSATIONAL_GREETINGS = [
         r'^(?:hi|hello|hey|hiya|howdy|good\s+(?:morning|afternoon|evening|day)|greetings)(?:[\s,!.]+)?$',
         r'^(?:hi|hello|hey)\s+(?:there|legalai|assistant|again)(?:[\s,!.]+)?$',
+        r'^(?:hi|hello|hey)[,\s]+who\s+are\s+you(?:[\s,?!.]+)?$',
         r'^(?:hi|hello|hey)[,\s]+how\s+are\s+you(?:[\s,?!.]+)?$',
         r'^(?:hi|hello|hey)[,\s]+how\'s\s+it\s+going(?:[\s,?!.]+)?$',
         r'^(?:hi|hello|hey)[,\s]+how\s+can\s+you\s+help(?:\s+me)?(?:[\s,?!.]+)?$',

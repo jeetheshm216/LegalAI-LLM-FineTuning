@@ -35,9 +35,11 @@ from pydantic import BaseModel, Field
 # Existing LegalAI RAG Pipeline & Query Router
 from src.rag.integration.rag_legalai import LegalAIRAGPipeline
 from src.api.query_router import QueryRouter, QueryIntent, get_query_router
+from src.case_rag import CaseRAGPipeline, CaseEmbedder
 
-# Global singleton RAG pipeline
+# Global singleton RAG pipeline & Case RAG pipeline
 pipeline: Optional[LegalAIRAGPipeline] = None
+case_rag_pipeline: Optional[CaseRAGPipeline] = None
 
 # SQLite database for Cases and Documents metadata
 APP_DB_PATH = REPO_ROOT / "data" / "legalai_app.db"
@@ -154,7 +156,7 @@ def init_app_database():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle manager: initializes DB and loads singleton RAG pipeline once."""
-    global pipeline
+    global pipeline, case_rag_pipeline
     print("\n" + "=" * 65)
     print("STARTING LEGALAI FASTAPI SERVICE")
     print(f"Target Host / Device: Physical GPU 2 (CUDA_VISIBLE_DEVICES={os.environ.get('CUDA_VISIBLE_DEVICES')})")
@@ -174,6 +176,28 @@ async def lifespan(app: FastAPI):
     print("Pre-loading Qwen model and LegalAI V2 LoRA adapter into GPU memory...")
     pipeline.load_model()
     print("LegalAIRAGPipeline ready for incoming requests.\n")
+
+    # Load Case Analysis V1 LoRA adapter onto existing model singleton
+    case_v1_path = str(REPO_ROOT / "outputs" / "qwen14b-case-analysis-v1")
+    if os.path.exists(case_v1_path) and hasattr(pipeline.model, "load_adapter"):
+        print(f"Registering Case Analysis V1 adapter from {case_v1_path}...")
+        try:
+            pipeline.model.load_adapter(case_v1_path, adapter_name="case_analysis_v1")
+            pipeline.model.set_adapter("default")
+            print("Successfully registered 'case_analysis_v1' adapter on model singleton.")
+        except Exception as e:
+            print(f"Warning loading case_analysis_v1 adapter: {e}")
+
+    # Initialize Case Document RAG Subsystem
+    print("Initializing Case Document RAG subsystem...")
+    case_rag_db = str(REPO_ROOT / "data" / "legalai_case_rag.db")
+    case_embedder = CaseEmbedder(existing_model=pipeline.embedder.model)
+    case_rag_pipeline = CaseRAGPipeline(
+        index_db_path=case_rag_db,
+        base_pipeline=pipeline,
+        embedder=case_embedder
+    )
+    print("CaseRAGPipeline ready for document ingestion and case analysis.\n")
 
     yield
 
@@ -365,7 +389,7 @@ def generate_case_guidance(case_id: Optional[str] = None) -> str:
 async def health_check():
     """Health endpoint exposing model and GPU status."""
     import torch
-    global pipeline
+    global pipeline, case_rag_pipeline
     return {
         "status": "healthy",
         "service": "LegalAI RAG API",
@@ -384,6 +408,11 @@ async def health_check():
         "rag": {
             "database": "data/legalai_rag_mvp.db",
             "statutes": ["BNS", "BNSS", "BSA"]
+        },
+        "case_rag": {
+            "database": "data/legalai_case_rag.db",
+            "is_loaded": case_rag_pipeline is not None,
+            "adapter": "outputs/qwen14b-case-analysis-v1"
         },
         "auth": {
             "status": "pending_backend_auth",
@@ -551,7 +580,8 @@ async def upload_case_document(
     caseNumber: Optional[str] = Form(None),
     category: Optional[str] = Form("Evidence")
 ):
-    """Uploads and stores a case document for indexing."""
+    """Uploads, stores, and indexes a case document into the Case RAG layer."""
+    global case_rag_pipeline
     doc_id = f"doc-{int(time.time() * 1000)}"
     case_dir = DOCS_STORAGE_DIR / case_id
     os.makedirs(case_dir, exist_ok=True)
@@ -563,8 +593,33 @@ async def upload_case_document(
         f.write(content)
 
     file_size_mb = f"{(len(content) / (1024 * 1024)):.2f} MB"
-    file_type = "pdf" if file.filename.lower().endswith(".pdf") else "docx"
+    ext = file.filename.lower().split(".")[-1] if "." in file.filename else "pdf"
+    file_type = ext
     uploaded_date = time.strftime("%Y-%m-%d")
+
+    # Ingest document into Case RAG subsystem
+    pages = 1
+    doc_status = "indexed"
+    doc_status_label = "Indexed"
+    excerpt = "Document uploaded and indexed into case file repository."
+
+    if case_rag_pipeline:
+        try:
+            ingested_doc = await asyncio.to_thread(
+                case_rag_pipeline.ingest_document,
+                case_id=case_id,
+                file_path=str(target_path),
+                filename=file.filename,
+                category=category or "Evidence"
+            )
+            pages = ingested_doc.pages or 1
+            doc_id = ingested_doc.id
+            excerpt = f"{file.filename} ({pages} pages) indexed into Case Document RAG."
+        except Exception as e:
+            print(f"Error ingesting document into Case RAG: {e}")
+            doc_status = "failed"
+            doc_status_label = "Failed"
+            excerpt = f"Processing error: {str(e)}"
 
     conn = sqlite3.connect(APP_DB_PATH)
     cursor = conn.cursor()
@@ -576,7 +631,7 @@ async def upload_case_document(
     """, (
         doc_id, case_id, caseNumber or "Case Matter", file.filename,
         category, file_type, file_size_mb, uploaded_date,
-        "indexed", "Indexed", 1, "Document uploaded and indexed into case file repository.",
+        doc_status, doc_status_label, pages, excerpt,
         str(target_path)
     ))
     conn.commit()
@@ -591,10 +646,10 @@ async def upload_case_document(
         "fileType": file_type,
         "fileSize": file_size_mb,
         "uploadedDate": uploaded_date,
-        "status": "indexed",
-        "statusLabel": "Indexed",
-        "pages": 1,
-        "excerpt": "Document uploaded and indexed into case file repository."
+        "status": doc_status,
+        "statusLabel": doc_status_label,
+        "pages": pages,
+        "excerpt": excerpt
     }
 
 
@@ -617,7 +672,7 @@ async def get_document_status(doc_id: str):
 @app.post("/api/v1/ai/chat")
 async def ai_chat(req: AIChatRequest):
     """Executes Query Router followed by Conversational Generation or full LegalAI RAG Pipeline."""
-    global pipeline
+    global pipeline, case_rag_pipeline
     if pipeline is None:
         raise HTTPException(status_code=503, detail="LegalAI RAG Pipeline is initializing")
 
@@ -650,23 +705,51 @@ async def ai_chat(req: AIChatRequest):
             "generation_time_sec": round(time.time() - t0, 3)
         }
 
-    # Route 2: CASE_QUERY
-    elif route_result.intent == QueryIntent.CASE_QUERY:
-        answer_text = generate_case_guidance(req.caseId)
+    # Route 2: CASE_QUERY or (Case Mode and not an explicit statutory query)
+    effective_case_id = req.caseId or (req.selectedCases[0] if (req.selectedCases and len(req.selectedCases) > 0) else None)
+    is_case_mode = (req.mode == "SINGLE_CASE" and effective_case_id) or (req.selectedCases and len(req.selectedCases) > 0)
+
+    if route_result.intent == QueryIntent.CASE_QUERY or (is_case_mode and route_result.intent != QueryIntent.LEGAL_QUERY):
+        if not effective_case_id:
+            answer_text = generate_case_guidance(None)
+            sources = []
+            rel = "supported"
+            rel_label = "Case Guidance"
+            conf_status = "CASE_GUIDANCE"
+        elif case_rag_pipeline:
+            case_analysis = await asyncio.to_thread(
+                case_rag_pipeline.answer_case_question,
+                question=req.content,
+                case_id=effective_case_id,
+                top_k=6,
+                max_new_tokens=768
+            )
+            answer_text = case_analysis.answer
+            sources = case_analysis.case_sources + case_analysis.legal_sources
+            rel = case_analysis.reliability
+            rel_label = case_analysis.reliability_label
+            conf_status = case_analysis.confidence_status
+        else:
+            answer_text = generate_case_guidance(effective_case_id)
+            sources = []
+            rel = "supported"
+            rel_label = "Case Guidance"
+            conf_status = "CASE_GUIDANCE"
+
         return {
             "id": f"msg-{int(time.time() * 1000)}",
             "role": "assistant",
             "timestamp": time.strftime("%I:%M %p"),
             "content": answer_text,
             "query_type": "CASE_QUERY",
-            "type": "case_guidance",
-            "reliability": "supported",
-            "reliabilityLabel": "Case Guidance",
-            "sources": [],
-            "citations": [],
-            "requires_verification": False,
-            "confidence_status": "CASE_GUIDANCE",
-            "evidence_status": "CASE_GUIDANCE",
+            "type": "case_analysis",
+            "reliability": rel,
+            "reliabilityLabel": rel_label,
+            "sources": sources,
+            "citations": [s.get("reference", "") for s in sources],
+            "requires_verification": (rel == "verify"),
+            "confidence_status": conf_status,
+            "evidence_status": "ANALYZED" if sources else "INSUFFICIENT_CASE_MATERIAL",
             "generation_time_sec": round(time.time() - t0, 3)
         }
 
@@ -705,7 +788,7 @@ async def ai_chat(req: AIChatRequest):
 @app.post("/api/v1/ai/chat/stream")
 async def ai_chat_stream(req: AIChatRequest):
     """Server-Sent Events (SSE) streaming endpoint for LegalAI Assistant."""
-    global pipeline
+    global pipeline, case_rag_pipeline
     if pipeline is None:
         raise HTTPException(status_code=503, detail="LegalAI RAG Pipeline is initializing")
 
@@ -750,9 +833,37 @@ async def ai_chat_stream(req: AIChatRequest):
             yield f"event: complete\ndata: {json.dumps(complete_payload)}\n\n"
             return
 
-        # Stream Route 2: CASE_QUERY
-        elif route_result.intent == QueryIntent.CASE_QUERY:
-            answer_text = generate_case_guidance(req.caseId)
+        # Stream Route 2: CASE_QUERY or (Case Mode and not an explicit statutory query)
+        effective_case_id = req.caseId or (req.selectedCases[0] if (req.selectedCases and len(req.selectedCases) > 0) else None)
+        is_case_mode = (req.mode == "SINGLE_CASE" and effective_case_id) or (req.selectedCases and len(req.selectedCases) > 0)
+
+        if route_result.intent == QueryIntent.CASE_QUERY or (is_case_mode and route_result.intent != QueryIntent.LEGAL_QUERY):
+            if not effective_case_id:
+                answer_text = generate_case_guidance(None)
+                sources = []
+                rel = "supported"
+                rel_label = "Case Guidance"
+                conf_status = "CASE_GUIDANCE"
+            elif case_rag_pipeline:
+                case_analysis = await asyncio.to_thread(
+                    case_rag_pipeline.answer_case_question,
+                    question=req.content,
+                    case_id=effective_case_id,
+                    top_k=6,
+                    max_new_tokens=768
+                )
+                answer_text = case_analysis.answer
+                sources = case_analysis.case_sources + case_analysis.legal_sources
+                rel = case_analysis.reliability
+                rel_label = case_analysis.reliability_label
+                conf_status = case_analysis.confidence_status
+            else:
+                answer_text = generate_case_guidance(effective_case_id)
+                sources = []
+                rel = "supported"
+                rel_label = "Case Guidance"
+                conf_status = "CASE_GUIDANCE"
+
             words = answer_text.split(" ")
             current_text = ""
             for i, word in enumerate(words):
@@ -767,14 +878,14 @@ async def ai_chat_stream(req: AIChatRequest):
                 "timestamp": time.strftime("%I:%M %p"),
                 "content": answer_text,
                 "query_type": "CASE_QUERY",
-                "type": "case_guidance",
-                "reliability": "supported",
-                "reliabilityLabel": "Case Guidance",
-                "sources": [],
-                "citations": [],
-                "requires_verification": False,
-                "confidence_status": "CASE_GUIDANCE",
-                "evidence_status": "CASE_GUIDANCE",
+                "type": "case_analysis",
+                "reliability": rel,
+                "reliabilityLabel": rel_label,
+                "sources": sources,
+                "citations": [s.get("reference", "") for s in sources],
+                "requires_verification": (rel == "verify"),
+                "confidence_status": conf_status,
+                "evidence_status": "ANALYZED" if sources else "INSUFFICIENT_CASE_MATERIAL",
                 "generation_time_sec": round(time.time() - t0, 3)
             }
             yield f"event: complete\ndata: {json.dumps(complete_payload)}\n\n"
