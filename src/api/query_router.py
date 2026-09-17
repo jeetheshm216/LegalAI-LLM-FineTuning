@@ -1,103 +1,214 @@
 """
 src/api/query_router.py
 
-Lightweight, deterministic query router for LegalAI.
-Classifies user incoming messages into:
-  - CONVERSATIONAL: pure greetings, gratitude, assistant identity, capabilities, courteous banter.
-  - LEGAL_QUERY: statutory questions, legal definitions, offences, penalties, procedures,
-                 including both in-corpus (BNS, BNSS, BSA, IT Act, Companies Act, etc.) and
-                 state/central or out-of-corpus legal statutes as well as legal practice.
-  - CASE_QUERY: matter-specific inquiries, evidence analysis, judgment analysis, FIR review,
-                case documents, client/opposing counsel questions.
-  - OUT_OF_SCOPE: strictly non-legal knowledge questions (programming, movies, sports, recipes,
-                  general trivia, tech shopping, etc.) that must receive a friendly scope boundary.
-  - AMBIGUOUS: isolated cryptic tokens, fragments, or demonstrative queries without context.
+Universal Query Understanding & Adaptive Routing Engine for LegalAI.
 
-CRITICAL SAFETY & ROUTING PRINCIPLES:
-1. Explicit legal provisions and statutory intent ALWAYS override casual greeting prefixes.
-   (e.g., "Hey, what is Section 103 BNS?" -> LEGAL_QUERY; "Hello, analyze my FIR" -> CASE_QUERY).
-2. All Indian statutory queries (Central Acts, State Acts, unindexed Acts, cybercrime scenarios)
-   must route to LEGAL_QUERY for authoritative corpus lookup or professional safe abstention.
-   They must NEVER be rejected as OUT_OF_SCOPE merely because an Act is not locally indexed.
-3. Conversational capability inquiries ("what can you do for me", "what are the things you can able to do fro me")
-   must route strictly to CONVERSATIONAL with retrieval_mode=NONE and qwen_invoked=False.
-4. Uncertain does NOT automatically mean LEGAL_QUERY. Positive evidence of legal intent (legal anchor)
-   is required before General Legal RAG is invoked.
-5. Inquiries lacking legal/case anchors that are not out-of-scope or conversational route to AMBIGUOUS.
+Implements the 4-dimensional separation:
+  QUERY INTENT ≠ AVAILABLE CONTEXT ≠ DATA SOURCE ≠ MODEL / ADAPTER
+
+Taxonomy (11 Core Classes):
+  1. CONVERSATIONAL: Pure greetings, gratitude, courteous banter, pleasantries.
+  2. SYSTEM_INFO: Application architecture, foundation model, LoRA adapters,
+                 supported corpus scope, system capabilities, technology stack.
+  3. TECHNICAL_AI: Conceptual explanations of AI, ML, LLMs, RAG, LoRA,
+                   fine-tuning, vector databases, embeddings.
+  4. CASE_MANAGEMENT: Portfolio queries, case priority, urgency, focus,
+                     upcoming court hearings, deadlines, court calendar.
+  5. LEGAL_QUERY: Substantive and procedural legal concepts (negligence, bail,
+                  FIR process, self-defence, consideration, limitation) without
+                  requiring the literal word 'legal' or 'law'.
+  6. EXACT_PROVISION_QUERY: Explicit statutory sections, articles, orders, rules
+                           requiring authoritative statutory RAG retrieval.
+  7. CASE_QUERY: Document-specific evidentiary inquiries (missing evidence,
+                 contradictions, chargesheet allegations, pleadings).
+  8. HEARING_PREPARATION: Case preparation points, judge arguments, strategic
+                         points for an active matter.
+  9. MIXED_LEGAL_CASE: Composed inquiries spanning legal authorities and case facts.
+  10. OUT_OF_SCOPE: Programming requests, movies, sports, recipes, general trivia.
+  11. AMBIGUOUS: Isolated cryptic tokens or unresolvable fragments requiring clarification.
+
+Safety Invariant: Fail closed with safe clarification or qualified boundary.
+Never guess, never fabricate, never route uncertain queries to random RAG.
 """
 
 import re
 from enum import Enum
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 
 
 class QueryIntent(str, Enum):
     CONVERSATIONAL = "CONVERSATIONAL"
-    OUT_OF_SCOPE = "OUT_OF_SCOPE"
-    GENERAL_NON_LEGAL = "OUT_OF_SCOPE"  # Backward-compatibility alias
+    SYSTEM_INFO = "SYSTEM_INFO"
+    TECHNICAL_AI = "TECHNICAL_AI"
+    CASE_MANAGEMENT = "CASE_MANAGEMENT"
     LEGAL_QUERY = "LEGAL_QUERY"
+    EXACT_PROVISION_QUERY = "EXACT_PROVISION_QUERY"
     CASE_QUERY = "CASE_QUERY"
+    HEARING_PREPARATION = "HEARING_PREPARATION"
+    MIXED_LEGAL_CASE = "MIXED_LEGAL_CASE"
+    OUT_OF_SCOPE = "OUT_OF_SCOPE"
     AMBIGUOUS = "AMBIGUOUS"
+
+    # Backward-compatibility alias
+    GENERAL_NON_LEGAL = "OUT_OF_SCOPE"
 
 
 @dataclass
-class RoutingResult:
+class QueryDecision:
     intent: QueryIntent
     confidence: float
     reason: str
-    matched_patterns: List[str]
     sub_intent: Optional[str] = None
+    matched_patterns: List[str] = field(default_factory=list)
+    entities: Dict[str, Any] = field(default_factory=dict)
+
+    # Decoupled workflow flags
+    requires_case_context: bool = False
+    requires_case_documents: bool = False
+    requires_case_metadata: bool = False
+    requires_legal_rag: bool = False
+    requires_exact_provision_resolution: bool = False
+    requires_system_context: bool = False
+    requires_technical_explanation: bool = False
+    requires_base_qwen: bool = False
+    requires_legalai_v2: bool = False
+    requires_case_analysis_v1: bool = False
+
+    # Metrics
     legal_intent_confidence: float = 0.0
     case_intent_confidence: float = 0.0
+    target_act: Optional[str] = None
+    target_provision: Optional[str] = None
+    case_id: Optional[str] = None
 
 
-class QueryRouter:
-    """Deterministic, rule-based classifier for routing user queries."""
+# Backward-compatibility alias
+RoutingResult = QueryDecision
+
+
+class UniversalQueryRouter:
+    """
+    Universal Query Understanding & Adaptive Routing Engine.
+    Evaluates semantic meaning, entities, context, and required data sources.
+    """
 
     # -------------------------------------------------------------------------
-    # 1. CASE_QUERY PATTERNS
-    # Specific legal matter, dispute, document, client, FIR, petition, judgment
+    # 1. SYSTEM & PRODUCT PATTERNS
+    # Questions about LegalAI, its underlying model, architecture, and technology.
     # -------------------------------------------------------------------------
-    CASE_MATTER_PATTERNS = [
-        # Explicit case / client references
-        r'\b(?:my|our|this|the)\s+case\b',
-        r'\b(?:my|our|this|the)?\s*client(?:\'?s)?\s+(?:case|position|argument|matter|defense|defence|claim|fir|petition|complaint)\b',
-        r'\bclient(?:\'?s)?\s+(?:case|position|fir|petition|complaint|advocate|counsel)\b',
-        r'\b(?:in|for)\s+this\s+matter\b',
-        r'\b(?:analyze|analyse|summarize|summarise|review)\s+.*?(?:case|matter|fir|judgment|judgement|petition|order|contract|agreement)\b',
-        r'\bstrongest\s+(?:arguments?|points?)\b',
-        r'\bweaknesses?\s+in\s+(?:this|the|my|our)\s+case\b',
-        r'\brisks?\s+of\s+pursuing\b',
-        r'\barguments?\s+can\s+the\s+opposing\s+counsel\s+make\b',
-        r'\bopposing\s+(?:counsel|party)\b',
-        r'\bwitness\s+statements?\b',
-        r'\binconsistencies\s+in\s+(?:the\s+)?witness\b',
-        # Pleading / case document references
-        r'\b(?:this|my|our|the|client(?:\'?s)?)\s+(?:petition|fir|complaint|chargesheet|charge\s*sheet|judgment|judgement|order|affidavit|pleadings?|written\s+statement)\b',
-        r'\bwhat\s+should\s+we\s+challenge\s+in\s+this\s+(?:petition|fir|complaint|appeal)\b',
-        r'\b(?:uploaded|attached)\s+(?:document|file|record|evidence)\b',
-        r'\bdocuments?\s+(?:are\s+)?missing\b',
-        r'\bwhat\s+documents?\s+are\s+missing\b',
-        r'\b(?:what\s+)?evidence\s+(?:is\s+)?missing(?:\s+in\s+my\s+case)?\b',
-        r'\bwhat\s+evidence\s+do\s+we\s+have\b',
-        r'\bwhat\s+contradictions\s+exist\b',
-        r'\bprepare\s+(?:me|us)\s+for\s+(?:the\s+)?(?:next\s+)?hearing\b',
-        r'\bwhat\s+should\s+i\s+prepare\s+for\s+(?:the\s+)?(?:next\s+)?hearing\b',
-        r'\bwhat\s+documents\s+support\s+(?:the\s+)?allegation\b',
-        r'\b(?:last|next)\s+hearing\b',
-        r'\bwhat\s+happened\s+(?:at|in)\s+(?:the\s+last\s+hearing|my\s+case|this\s+case)\b',
-        r'\bkey\s+facts\s+(?:in|of)\s+(?:this|my|the)\s+(?:case|matter|judgment|judgement)\b',
-        r'\bwhat\s+are\s+the\s+key\s+points\s+in\s+this\s+case\b',
-        r'\bevidence\s+supports\s+our\s+(?:position|case|argument)\b',
-        r'\bwhat\s+evidence\s+supports\b',
-        r'\bsummarize\s+this\s+case\b',
+    SYSTEM_PATTERNS = [
+        r'\b(?:what|which)\s+(?:is\s+)?(?:the\s+)?(?:ai\s+)?model\s+(?:of|is|powers?|running|behind)\s+(?:legal\s*ai|the\s+assistant|this\s+app|this\s+system)\b',
+        r'\b(?:what|which)\s+(?:ai\s+)?model\s+(?:are\s+you|is\s+legal\s*ai)\s+(?:using|powered\s+by|based\s+on)\b',
+        r'\b(?:what|which)\s+(?:llm|foundation\s+model|neural\s+network|architecture)\s+(?:are\s+you|is\s+legal\s*ai)\s+(?:using|powered\s+by|based\s+on|running)\b',
+        r'\bwhat\s+model\s+(?:powers?|runs?)\s+legal\s*ai\b',
+        r'\bwhat\s+model\s+(?:are\s+you\s+using|do\s+you\s+use)\b',
+        r'\bwhat\s+is\s+the\s+model\s+of\s+legal\s*ai\b',
+        r'\bwhat\s+powers\s+(?:this\s+assistant|legal\s*ai|the\s+assistant)\b',
+        r'\bhow\s+was\s+legal\s*ai\s+(?:built|trained|developed|created)\b',
+        r'\bwhat\s+technolog(?:y|ies)\s+(?:does\s+legal\s*ai\s+use|powers?\s+this\s+system|(?:is|are)\s+behind\s+this(?:\s+system)?)\b',
+        r'\bhow\s+does\s+legal\s*ai\s+work\b',
+        r'\bwhat\s+is\s+legal\s*ai\b',
+        r'\btell\s+me\s+about\s+legal\s*ai\b',
+        r'\bdoes\s+legal\s*ai\s+use\s+(?:rag|fine-?tuning|lora|qwen)\b',
+        r'\bwhy\s+does\s+legal\s*ai\s+use\s+qwen\b',
+        r'\bhow\s+does\s+the\s+legal\s+model\s+know\s+current\s+indian\s+law\b',
+        r'\bcan\s+legal\s*ai\s+analyze\s+my\s+case\s+documents\b',
+        r'\bwhat\s+(?:are\s+)?(?:the\s+)?(?:capabilities|features)\s+of\s+legal\s*ai\b',
+        r'\bwhat\s+can\s+legal\s*ai\s+do\b',
+        r'\bwhat\s+can\s+you\s+do(?:\s+for\s+me)?\b',
+        r'\bwhat\s+are\s+your\s+capabilities\b',
+        r'\bwhat\s+can\s+i\s+ask\s+you\b',
     ]
 
     # -------------------------------------------------------------------------
-    # 2. LEGAL_QUERY PATTERNS (LEGAL ANCHORS)
-    # Statutory sections, acts, penal provisions, procedural rights, legal terms,
-    # cybercrime concepts, state and central enactments.
+    # 2. TECHNICAL AI & ML KNOWLEDGE PATTERNS
+    # Questions asking for conceptual explanations of AI/ML/LLM technologies.
+    # -------------------------------------------------------------------------
+    TECHNICAL_AI_PATTERNS = [
+        r'\bwhat\s+is\s+(?:artificial\s+intelligence|ai)\b',
+        r'\bwhat\s+is\s+(?:machine\s+learning|ml|deep\s+learning)\b',
+        r'\bwhat\s+is\s+(?:an?\s+)?(?:llm|large\s+language\s+model)\b',
+        r'\bwhat\s+is\s+(?:qwen|qwen2(?:\.5)?(?:-14b)?)\b',
+        r'\bcan\s+you\s+explain\s+qwen\b',
+        r'\b(?:what\s+is|explain)\s+(?:rag|retrieval\s+augmented\s+generation)\b',
+        r'\bhow\s+does\s+(?:rag|retrieval\s+augmented\s+generation)\s+work\b',
+        r'\b(?:what\s+is|explain)\s+(?:a\s+)?(?:lora|peft|low[\s-]rank\s+adaptation)(?:\s+adapter)?\b',
+        r'\bwhat\s+does\s+(?:lora|peft|rag|low[\s-]rank\s+adaptation)\s+mean\b',
+        r'\b(?:what\s+is|explain|how\s+does)\s+(?:fine-?tuning|supervised\s+fine-?tuning|sft)(?:\s+work)?\b',
+        r'\bwhy\s+(?:do\s+people\s+)?fine-?tune\s+(?:a\s+)?(?:language\s+models?|llms?)\b',
+        r'\bwhat\s+is\s+the\s+difference\s+between\s+rag\s+and\s+fine-?tuning\b',
+        r'\bhow\s+does\s+rag\s+differ\s+from\s+fine-?tuning\b',
+        r'\bwhat\s+are\s+(?:vector\s+)?embeddings\b',
+        r'\bwhat\s+is\s+a\s+vector\s+(?:database|store|index)\b',
+        r'\bwhat\s+is\s+(?:a\s+)?(?:context\s+window|tokenization|tokens?)\b',
+        r'\bwhat\s+is\s+prompt\s+engineering\b',
+        r'\bhow\s+do\s+transformers\s+work\b',
+    ]
+
+    # -------------------------------------------------------------------------
+    # 3. CASE MANAGEMENT & PORTFOLIO WORKLOAD PATTERNS
+    # Queries about priorities, upcoming hearings, deadlines, court schedule.
+    # -------------------------------------------------------------------------
+    CASE_MANAGEMENT_PATTERNS = [
+        r'\bwhat\s+(?:is\s+)?(?:the\s+)?important\s+thing\s+i\s+have\s+to\s+focus\s+on\b',
+        r'\bwhat\s+should\s+i\s+focus\s+on\s+now\b',
+        r'\bwhat\s+case\s+i\s+have\s+to\s+focus\s+more\b',
+        r'\bwhich\s+case\s+should\s+i\s+focus\s+on\b',
+        r'\bwhich\s+case\s+(?:has\s+the\s+highest\s+priority|is\s+highest\s+priority)\b',
+        r'\bwhat\s+is\s+my\s+most\s+urgent\s+case\b',
+        r'\bwhich\s+(?:cases?|matters?)\s+(?:are|is)\s+urgent\b',
+        r'\bshow\s+(?:me\s+)?(?:my\s+)?urgent\s+(?:cases?|matters?)\b',
+        r'\bwhich\s+(?:cases?|matters?)\s+need\s+attention\b',
+        r'\bwhat\s+hearings?\s+are\s+(?:scheduled|coming\s+up)(?:\s+(?:for\s+)?this\s+week)?\b',
+        r'\bwhat\s+hearings?\s+do\s+i\s+have\b',
+        r'\bwhen\s+is\s+my\s+next\s+hearing\b',
+        r'\bwhich\s+cases?\s+have\s+upcoming\s+(?:deadlines|hearings)\b',
+        r'\bwhat\s+deadlines?\s+do\s+i\s+have\b',
+        r'\bmy\s+court\s+calendar\b',
+        r'\bportfolio\s+status\b',
+        r'\blist\s+(?:my\s+)?cases\b',
+    ]
+
+    # -------------------------------------------------------------------------
+    # 4. HEARING PREPARATION PATTERNS
+    # Preparation for a court hearing on an active legal matter.
+    # -------------------------------------------------------------------------
+    HEARING_PREP_PATTERNS = [
+        r'\bwhat\s+should\s+i\s+prepare\s+for\s+(?:the\s+)?(?:next\s+)?hearing\b',
+        r'\bprepare\s+(?:me|us)\s+for\s+(?:the\s+)?(?:next\s+)?hearing\b',
+        r'\bwhat\s+points\s+should\s+i\s+(?:tell|raise\s+before|argue\s+before)\s+the\s+judge\b',
+        r'\bwhat\s+are\s+the\s+important\s+points\s+for\s+the\s+next\s+hearing\b',
+        r'\bwhat\s+should\s+i\s+focus\s+on\s+before\s+the\s+hearing\b',
+        r'\bhearing\s+strategy\b',
+    ]
+
+    # -------------------------------------------------------------------------
+    # 5. CASE DOCUMENT & EVIDENCE INQUIRY PATTERNS
+    # Evidentiary facts, contradictions, missing documents in uploaded case files.
+    # -------------------------------------------------------------------------
+    CASE_EVIDENCE_PATTERNS = [
+        r'\b(?:what\s+)?evidence\s+(?:is\s+)?missing(?:\s+in\s+(?:my|this|the)\s+case)?\b',
+        r'\bwhat\s+documents?\s+(?:are\s+)?missing\b',
+        r'\bwhat\s+contradictions?\s+(?:exist|are\s+there|are\s+present)\b',
+        r'\bcontradictions?\s+in\s+(?:the\s+)?(?:evidence|documents?|testimony|statements?|case)\b',
+        r'\bwhat\s+are\s+the\s+key\s+(?:facts|points|issues|evidence)\s+(?:in|of)\s+(?:this|my|the)\s+case\b',
+        r'\bkey\s+(?:facts|points|issues|evidence)\s+(?:in|of)\s+(?:this|my|the)\s+(?:case|matter)\b',
+        r'\bkey\s+facts\s+(?:in|of)\s+(?:this|my|the)\s+(?:case|matter)\b',
+        r'\bwhat\s+documents?\s+support\s+(?:the\s+)?(?:client(?:\'?s)?\s+)?(?:claim|allegation|position)\b',
+        r'\bevidence\s+supports\s+our\s+(?:position|case|argument)\b',
+        r'\bweaknesses?\s+in\s+(?:this|the|my|our)\s+case\b',
+        r'\bwhat\s+arguments?\s+can\s+the\s+opposing\s+counsel\s+make\b',
+        r'\bwhat\s+allegations?\s+are\s+made\s+(?:in\s+the\s+(?:fir|complaint|petition))\b',
+        r'\bsummarize\s+(?:this\s+case|the\s+uploaded\s+documents?|the\s+case\s+documents?)\b',
+        r'\binconsistencies\s+in\s+(?:the\s+)?witness\b',
+        r'\bwitness\s+statements?\b',
+        r'\bwhat\s+happened\s+(?:at|in)\s+(?:the\s+last\s+hearing|my\s+case|this\s+case)\b',
+    ]
+
+    # -------------------------------------------------------------------------
+    # 6. EXACT STATUTORY PROVISION PATTERNS
+    # Cites a specific numbered section, article, order, or provision syntax.
     # -------------------------------------------------------------------------
     STATUTE_SECTION_PATTERNS = [
         r'\b(?:section|sec\.?|s\.?|u/s|\u00a7|provision)\s*[0-9]+[A-Za-z]*\b',
@@ -105,11 +216,10 @@ class QueryRouter:
         r'\border\s+[0-9IVXLCDM]+\s+(?:rule\s+[0-9]+)?\b',
         r'\bclause\s+[0-9]+(?:\([a-z0-9]+\))*\b',
         r'\bschedule\s+[0-9IVXLCDM]+\b',
-        r'\bact\s+[0-9]+[A-Za-z]*\b',  # Provision-like syntax such as 'act 49A'
+        r'\bact\s+[0-9]+[A-Za-z]*\b',
     ]
 
     ACT_NAME_PATTERNS = [
-        # Core criminal enactments
         r'\b(?:bns|bnss|bsa)\b',
         r'\bbharatiya\s+nyaya\s+sanhita(?:\s*,?\s*2023)?\b',
         r'\bbharatiya\s+nagarik\s+suraksha\s+sanhita(?:\s*,?\s*2023)?\b',
@@ -118,13 +228,10 @@ class QueryRouter:
         r'\bindian\s+penal\s+code\b',
         r'\bcode\s+of\s+criminal\s+procedure\b',
         r'\b(?:indian\s+)?evidence\s+act\b',
-        # Major statutory domains
         r'\bconstitution\s+of\s+india\b',
-        r'\bconstitutional\s+law\b',
         r'\bnegotiable\s+instruments?\s+(?:act)?\b',
         r'\bni\s+act\b',
         r'\brera\b',
-        r'\breal\s+estate\s+(?:regulation|regulatory)\b',
         r'\bcompanies\s+act\b',
         r'\bcontract\s+act\b',
         r'\barbitration\s+(?:and\s+conciliation\s+)?act\b',
@@ -132,7 +239,6 @@ class QueryRouter:
         r'\blimitation\s+act\b',
         r'\bconsumer\s+protection\s+act\b',
         r'\bmotor\s+vehicles?\s+act\b',
-        r'\bmva\b',
         r'\binformation\s+technology\s+act(?:\s*,?\s*2000)?\b',
         r'\bit\s+act(?:\s*,?\s*2000)?\b',
         r'\bita(?:\s*,?\s*2000)?\b',
@@ -146,74 +252,46 @@ class QueryRouter:
         r'\bsarfaesi(?:\s+act)?\b',
         r'\bibc\b',
         r'\binsolvency\s+and\s+bankruptcy(?:\s+code)?\b',
-        r'\bfamily\s+courts?\s+act\b',
-        r'\bhindu\s+marriage\s+act\b',
-        r'\bspecific\s+relief\s+act\b',
-        r'\bgst\s+act\b',
-        r'\bincome\s+tax\s+act\b',
-        r'\blabour\s+laws?\b',
         r'\bcivil\s+procedure\s+code\b',
         r'\bcpc\b',
-        # Structural statutory enactments (Central and State Acts, Codes, Rules, Ordinances)
         r'\b(?!(?:act\s+of\s+god|caught\s+in\s+the\s+act|act\s+as|act\s+upon|to\s+act|second\s+act|final\s+act)\b)(?:[A-Z][a-zA-Z0-9\s,\-\'\&]{1,60}?)\s+Act(?:\s*,?\s*(?:18|19|20)[0-9]{2})?\b',
-        r'\b(?!(?:act\s+of\s+god|caught\s+in\s+the\s+act|act\s+as|act\s+upon|to\s+act)\b)(?:[a-zA-Z0-9\s,\-\'\&]{2,60}?)\s+Act,\s*(?:18|19|20)[0-9]{2}\b',
         r'\b[A-Za-z\s]+(?:Sanhita|Adhiniyam|Ordinance)(?:\s*,?\s*(?:18|19|20)[0-9]{2})?\b',
-        r'\b(?:civil|criminal|penal|procedure|evidence|insolvency|arbitration|bankruptcy)\s+code\b',
-        r'\b(?:what\s+is\s+an\s+act|what\s+is\s+the\s+act\s+number|act\s+number)\b',
-        r'\bwhat\s+does\s+.*?provide\b',
-        r'\bwhat\s+law\s+applies\b',
     ]
 
-    SUBSTANTIVE_LEGAL_TERMS = [
-        # Offences & Penal Concepts
-        r'\bmurder\b',
+    # -------------------------------------------------------------------------
+    # 7. GENERAL LEGAL CONCEPTS (WITHOUT REQUIRING WORD "LEGAL" OR "LAW")
+    # Substantive doctrines, penal offences, civil doctrines, procedural remedies.
+    # -------------------------------------------------------------------------
+    LEGAL_CONCEPT_PATTERNS = [
+        r'\b(?:what\s+is\s+)?negligence\b',
+        r'\b(?:what\s+is\s+)?(?:anticipatory\s+)?bail\b',
+        r'\b(?:what\s+is\s+)?defamation\b',
+        r'\b(?:what\s+is\s+)?self[\s-]defen[sc]e\b',
+        r'\bwhat\s+happens\s+after\s+(?:an?\s+)?fir\b',
+        r'\b(?:what\s+is\s+)?consideration(?:\s+in\s+contract)?\b',
+        r'\b(?:what\s+is\s+the\s+)?punishment\s+for\s+[a-z\s]+\b',
+        r'\b(?:what\s+is\s+)?cheating\b',
+        r'\b(?:what\s+is\s+)?murder\b',
         r'\bculpable\s+homicide\b',
-        r'\bpunishment(?:\s+applies)?\b',
-        r'\bpunishment\s+for\s+[a-z\s]+\b',
-        r'\b(?:what\s+)?evidence\s+(?:is\s+)?(?:required|needed|relevant)\b',
         r'\btheft\b',
         r'\brobbery\b',
         r'\bdacoity\b',
         r'\bextortion\b',
-        r'\bcheating\b',
         r'\bfraud\b',
         r'\bforgery\b',
-        r'\bcheque\s+(?:bounce|dishonour|dishonor)\b',
-        r'\brape\b',
-        r'\bsexual\s+assault\b',
-        r'\bstalking\b',
-        r'\bassault\b',
-        r'\bcriminal\s+(?:breach\s+of\s+trust|misappropriation|force|intimidation|trespass|conspiracy)\b',
-        r'\bgrievous\s+hurt\b',
-        r'\bkidnapping\b',
-        r'\babduction\b',
-        r'\bdefamation\b',
-        r'\bsedition\b',
-        r'\bperjury\b',
-        r'\babetment\b',
-        r'\bcruelty\b',
-        r'\bdowry\s+death\b',
-        r'\bquashing\b',
-        r'\bdischarge\b',
+        r'\bcriminal\s+(?:breach\s+of\s+trust|conspiracy|intimidation|trespass)\b',
+        r'\bcheque\s+(?:bounce|dishonou?r)\b',
+        r'\bquashing(?:\s+of\s+fir)?\b',
         r'\bcognizance\b',
-        r'\bbail\b',
-        r'\banticipatory\s+bail\b',
-        r'\bregular\s+bail\b',
-        r'\binterim\s+bail\b',
-        r'\bdefault\s+bail\b',
+        r'\bdischarge\b',
         r'\bremand\b',
         r'\bpolice\s+custody\b',
         r'\bjudicial\s+custody\b',
         r'\barrest\b',
-        r'\bfir\b',
-        r'\bfirst\s+information\s+report\b',
-        r'\bchargesheet\b',
-        r'\bcharge\s+sheet\b',
         r'\bcognizable\b',
         r'\bnon-cognizable\b',
         r'\bbailable\b',
         r'\bnon-bailable\b',
-        r'\bcompoundable\b',
         r'\blimitation\s+period\b',
         r'\bperiod\s+of\s+limitation\b',
         r'\bcondonation\s+of\s+delay\b',
@@ -226,517 +304,428 @@ class QueryRouter:
         r'\bpresumption\b',
         r'\bconfession\b',
         r'\bdying\s+declaration\b',
-        r'\bexpert\s+opinion\b',
-        r'\bcross-examination\b',
-        r'\bexamination-in-chief\b',
         r'\bappeal\b',
         r'\brevision\b',
         r'\bspecial\s+leave\s+petition\b',
         r'\bslp\b',
         r'\bwrit\s+petition\b',
+        r'\b(?:what\s+)?(?:indian\s+)?legal\s+provisions?\s+(?:may\s+)?apply\b',
+        r'\b(?:what\s+)?law\s+applies\s+to\b',
+        r'\b(?:cyber\s*crime|phishing|identity\s+theft|hacking|upi\s+fraud)\b',
+        r'\bstole\s+my\s+(?:upi|password|credentials|money|data)\b',
         r'\bhabeas\s+corpus\b',
         r'\bmandamus\b',
         r'\binjunction\b',
         r'\bstay\s+order\b',
-        r'\bdamages\b',
         r'\bmens\s+rea\b',
         r'\bactus\s+reus\b',
-        r'\bretrospective\b',
-        r'\bex\s+post\s+facto\b',
-        r'\barticle\s+20(?:\(1\))?\b',
-        r'\bfundamental\s+rights?\b',
-        r'\bdirective\s+principles?\b',
-        r'\bprosecution\b',
-        r'\btrial\b',
-        r'\bprocedure\s+for\s+(?:filing|appeal|bail|arrest|investigation)\b',
-        r'\bwhich\s+law\s+applies\b',
-        r'\bwhat\s+law\s+applies\b',
-        r'\bwhat\s+is\s+the\s+(?:punishment|penalty|law|limitation)\b',
-        r'\bis\s+(?:this|an|the)?\s*offence\s+bailable\b',
-        r'\bcan\s+(?:an?\s+)?accused\b',
-        r'\brights\s+of\s+(?:an?\s+)?accused\b',
-        # Professional legal workflows
-        r'\bbail\s+application\b',
-        r'\blegal\s+notice\b',
-        r'\bstructure\s+of\s+a\s+legal\s+notice\b',
-        r'\bcivil\s+and\s+criminal\s+proceedings\b',
-        r'\bpower\s+of\s+attorney\b',
-        r'\bvakalatnama\b',
-        r'\bwritten\s+statement\b',
-        r'\baffidavit\b',
-        r'\bpleadings?\b',
-        r'\blegal\s+research\b',
-        r'\bstatutory\s+provisions?\b',
-        # Judicial precedents & court authorities
-        r'\bsupreme\s+court\b',
-        r'\bhigh\s+court\b',
-        r'\bprecedent\b',
-        r'\bjudicial\s+precedent\b',
-        r'\bjudgments?\b',
-        r'\bruling\b',
-        r'\bratio\s+decidendi\b',
-        r'\bobiter\s+dicta\b',
-        r'\bcase\s+law\b',
-        r'\barjun\s+panditrao\b',
-        r'\bshreya\s+singhal\b',
-        r'\b65b(?:\s+certificate)?\b',
-        # Cybercrime, Digital & Financial Offences
-        r'\b(?:upi|bhim|paytm|google\s*pay|phonepe|net\s*banking|debit\s*card|credit\s*card|pin|otp)\b',
-        r'\b(?:credentials?|credentials?\s+stolen|stole(?:n)?(?:\s+my)?\s+credentials?)\b',
-        r'\b(?:phishing|spoofing|cyber\s*(?:crime|fraud|attack|security|stalking|bullying)|identity\s+theft)\b',
-        r'\b(?:unauthorized\s+transaction|financial\s+fraud|online\s+fraud|banking\s+fraud|wire\s+fraud)\b',
-        r'\b(?:hacking|hacked|ransomware|malware|deepfake|sim\s+swap|trojan|data\s+breach)\b',
-        r'\bwhat\s+(?:indian\s+)?legal\s+provisions?\s+(?:may\s+)?apply\b',
-        r'\bwhat\s+provisions?\s+apply\b',
-        r'\bwhat\s+law\s+applies\s+to\b',
-        r'\blegal\s+provisions?\b',
-        r'\bapplicable\s+laws?\b',
+        r'\bres\s+judicata\b',
+        r'\bpromissory\s+estoppel\b',
+        r'\bspecific\s+performance\b',
+        r'\bvicarious\s+liability\b',
+        r'\bstrict\s+liability\b',
+        r'\babsolute\s+liability\b',
+        r'\blegal\s+(?:notice|remedy|heir|rights?|advice)\b',
     ]
 
     # -------------------------------------------------------------------------
-    # 3. OUT_OF_SCOPE PATTERNS
-    # Non-legal queries: programming, movies, sports, tech shopping, recipes,
-    # math, general science, trivia.
+    # 8. OUT-OF-SCOPE (NON-LEGAL, NON-AI, NON-CASE) PATTERNS
+    # Strictly programming, entertainment, sports, cooking, consumer shopping.
     # -------------------------------------------------------------------------
     OUT_OF_SCOPE_PATTERNS = [
-        # Programming & software development
-        r'\b(?:python|c\+\+|c#|java|javascript|typescript|ruby|golang|rust|html|css|sql|bash|powershell|php)\b',
-        r'\b(?:write|give\s+me|generate|create|show)\s+(?:a\s+)?(?:python|c\+\+|java|javascript|c#|code|script|program|function|algorithm)\b',
-        r'\b(?:c\+\+\s+code|python\s+code|write\s+code|code\s+for|odd\s+or\s+even|for\s+odd\s+or\s+even|odd\s+even)\b',
-        r'\bwhat\s+is\s+(?:python|javascript|typescript|java|c\+\+|html|css|git|docker|kubernetes|linux)\b',
-        r'\bhow\s+to\s+(?:code|program|compile|debug|install|deploy|run|build)\b',
-        r'\b(?:sort\s+a\s+list|binary\s+search|linked\s+list|data\s+structure|recursion|bubble\s+sort|quick\s+sort)\b',
-        r'\b(?:machine\s+learning|deep\s+learning|neural\s+network|artificial\s+intelligence|llm|nlp|data\s+science)\b',
-        r'\bexplain\s+(?:recursion|polymorphism|pointers|sorting|algorithms?)\b',
-        # Entertainment, movies, actors, cinema, music, celebrities
-        r'\b(?:vijay|rajinikanth|ajith|kamal\s+haasan|shah\s+rukh|salman\s+khan|aamir\s+khan|deepika|alia\s+bhatt)\b',
-        r'\b(?:last|latest|new|next|upcoming|recent)\s+(?:[a-z]+\s+)?(?:movie|film|cinema)\b',
-        r'\b(?:movie|movies|film|films|cinema|trailer|box\s+office|song|songs|music|album|album\s+songs?)\b',
-        r'\b(?:recommend|suggest)\s+.*?\b(?:movie|movies|film|films|series|show|shows|song|songs|music)\b',
-        r'\b(?:actor|actress|bollywood|hollywood|kollywood|tollywood|director|hero|heroine|celebrity)\b',
-        # Sports
-        r'\b(?:cricket|football|soccer|ipl|fifa|tennis|badminton|chess|world\s+cup|match\s+score)\b',
+        # Coding & programming requests
+        r'\b(?:write|create|generate|show\s+me|build)(?:\s+me)?\s+(?:a\s+)?(?:python|c\+\+|java|javascript|php|ruby|rust|golang|sql|html|css)?\s*(?:code|program|script|function|class|file|game|app)\b',
+        r'\b(?:python|c\+\+|java|javascript|php|ruby|rust|golang)\s+(?:code|game|program|script|developer)\b',
+        r'\b(?:sort\s+a\s+list|fibonacci|binary\s+search|bubble\s+sort|merge\s+sort|palindrome\s+function)\b',
+        r'\b(?:print\s+hello\s+world|hello\s+world\s+program)\b',
+        # Entertainment & pop culture
+        r'\b(?:last|latest|new)\s+(?:vijay|ajith|rajini|kamal|shah\s*rukh|salman)\s+(?:movie|film)\b',
+        r'\b(?:recommend|suggest)\s+(?:a\s+)?(?:movie|film|song|series|anime|book|novel)\b',
+        r'\btell\s+me\s+a\s+movie\s+(?:plot|story)\b',
+        # Sports & athletics
         r'\bwho\s+won\s+.*?\b(?:match|game|tournament|cup|trophy)\b',
+        r'\b(?:cricket\s+score|match\s+result|football\s+score|fifa|ipl\s+score)\b',
         r'\b(?:virat\s+kohli|rohit\s+sharma|dhoni|messi|ronaldo)\b',
-        # Cooking, food, recipes
+        # Cooking & food
         r'\bhow\s+do\s+i\s+cook\b',
-        r'\b(?:recipe|recipes|biryani|pizza|burger|pasta|curry|cook|cooking|bake|baking|restaurant)\b',
-        # Shopping & consumer tech
+        r'\b(?:recipe\s+for|recipes?|biryani|pizza|burger|pasta|curry|cook|cooking|bake)\b',
+        # Consumer tech shopping & gadget recommendations
         r'\b(?:what|which)\s+laptop\s+should\s+i\s+buy\b',
-        r'\b(?:best|recommend)\s+(?:laptop|phone|smartphone|camera|headphones|car|bike)\b',
-        r'\b(?:iphone|macbook|dell|lenovo|asus|samsung\s+galaxy)\b',
-        # Math & calculations
-        r'\b(?:calculate|compute|solve\s+math|equation)\b',
-        r'^\s*[-+]?[0-9]+(?:\.[0-9]+)?\s*[\+\-\*\/\^]\s*[-+]?[0-9]+(?:\.[0-9]+)?(?:\s*[\+\-\*\/\^]\s*[-+]?[0-9]+(?:\.[0-9]+)?)*\s*$',
-        # General world trivia / geography / science
+        r'\b(?:recommend|suggest|best)\s+(?:a\s+)?(?:laptop|phone|smartphone|camera|headphones|car|bike|television|tv)\b',
+        # General non-legal trivia & weather
         r'\bwhat\s+is\s+the\s+capital\s+of\b',
-        r'\bwho\s+is\s+the\s+(?:president|prime\s+minister|king|queen)\s+of\b',
         r'\b(?:weather\s+in|weather\s+today|temperature\s+in)\b',
-        r'\b(?:photosynthesis|quantum\s+physics|gravity|solar\s+system|speed\s+of\s+light)\b',
-        r'\b(?:travel\s+to|trip\s+to|flight\s+to|hotel\s+in|vacation\s+in|tourism)\b',
         r'\btell\s+me\s+a\s+joke\b',
-        r'\b(?:hello\s+world|c\+\+\s+hello\s+world)\b',
-        r'\b(?:cricket\s+result|match\s+result|cricket\s+score)\b',
-        r'\b(?:laptop\s+recommendation|recommend\s+(?:a\s+)?laptop)\b',
     ]
 
     # -------------------------------------------------------------------------
-    # 4. CAPABILITY INQUIRY PATTERNS
-    # System capabilities, user guidance, what questions can be asked, features.
-    # Must route to CONVERSATIONAL with retrieval_mode=NONE and qwen_invoked=FALSE.
+    # 9. CONVERSATIONAL PATTERNS
     # -------------------------------------------------------------------------
-    CAPABILITY_PATTERNS = [
-        # Natural capability inquiries with typo & variation tolerance
-        r'\bwhat\s+(?:are\s+)?(?:all\s+)?(?:the\s+)?(?:things\s+)?(?:you\s+can\s+(?:be\s+)?able\s+to\s+do|can\s+you\s+do|are\s+you\s+able\s+to\s+do|do\s+you\s+do)(?:\s+(?:for|fro)\s+me)?\b',
-        r'\bwhat\s+are\s+the\s+things\s+you\s+can\s+.*?\b',
-        r'\bwhat\s+can\s+you\s+do(?:\s+(?:for|fro)\s+me)?\b',
-        r'\bwhat\s+are\s+you\s+able\s+to\s+do\b',
-        r'\bwhat\s+are\s+you\s+capable\s+of\b',
-        r'\bwhat\s+can\s+you\s+help\s+(?:me\s+)?with\b',
-        r'\bhow\s+can\s+you\s+help(?:\s+me)?\b',
-        r'\bwhat\s+can\s+i\s+ask(?:\s+you)?\b',
-        r'\bwhat\s+kinds?\s+of\s+questions?\s+can\s+i\s+ask\b',
-        r'\bwhat\s+services?\s+do\s+you\s+provide\b',
-        r'\bwhat\s+are\s+your\s+(?:capabilities|features)\b',
-        r'\btell\s+me\s+what\s+you\s+can\s+do\b',
-        r'\bwhat\s+can\s+i\s+use\s+you\s+for\b',
-        r'\bwhat\s+do\s+you\s+help\s+with\b',
-        r'\bhow\s+can\s+i\s+use\s+(?:you|legalai)\b',
-        r'\bwhat\s+can\s+legalai\s+do\b',
-        r'\bwhat\s+does\s+legalai\s+do\b',
-        r'\bwhat\s+all\s+can\s+you\s+do\b',
-        r'\bwhat\s+are\s+you\s+doing\b',
-        r'\bhow\s+to\s+use\s+(?:you|legalai)\b',
-        r'\bexplain\s+your\s+capabilities\b',
-    ]
-
-    # -------------------------------------------------------------------------
-    # 5. CONVERSATIONAL PATTERNS
-    # Greetings, gratitude, assistant identity, courteous chatter, pleasantries.
-    # -------------------------------------------------------------------------
-    CONVERSATIONAL_GREETINGS = [
+    CONVERSATIONAL_PATTERNS = [
         r'^(?:hi|hello|hey|hiya|howdy|good\s+(?:morning|afternoon|evening|day)|greetings)(?:[\s,!.]+)?$',
         r'^(?:hey|hi|hello)\s+(?:hi|hey|hello|there|legalai|assistant|again)(?:[\s,!.]+)?$',
-        r'^(?:hi|hello|hey|hiya|howdy)[,\s]+.*?(?:how\s+are\s+you|how\'s\s+it\s+going|what\'s\s+up|how\s+are\s+you\s+doing)(?:[\s,?!.]+)?$',
-        r'^(?:good\s+(?:morning|afternoon|evening|day))[,\s]+(?:how\s+are\s+you(?:\s+doing)?|legalai|assistant|there)(?:[\s,?!.]+)?$',
-    ]
-
-    CONVERSATIONAL_GRATITUDE = [
+        r'^(?:hi|hello|hey|hiya|howdy)[,\s!]+.*?(?:how\s+are\s+you|how\'s\s+it\s+going|what\'s\s+up|how\s+are\s+you\s+doing(?:\s+today)?|how\s+do\s+you\s+do)(?:[\s,?!.]+)?$',
+        r'^(?:how\s+are\s+you|how\s+are\s+you\s+doing(?:\s+today)?|how\'s\s+it\s+going(?:\s+today)?|how\s+do\s+you\s+do)(?:[\s,?!.]+)?$',
         r'^(?:thanks|thank\s+you|thank\s+you\s+(?:so\s+much|very\s+much)|many\s+thanks|appreciate\s+it|thx)(?:[\s,!.]+)?$',
-        r'^(?:thanks|thank\s+you)[,\s]+(?:legalai|for\s+(?:your\s+help|the\s+help|helping|explaining))(?:[\s,!.]+)?$',
+        r'^(?:thanks|thank\s+you)(?:\s+so\s+much|\s+very\s+much)?[,\s]+(?:legalai|for\s+(?:your\s+help|the\s+help|helping|explaining|the\s+clarification|clarifying|this|that))(?:[\s,!.]+)?$',
         r'^(?:ok\s+thanks|okay\s+thanks|great\s+thanks|thanks\s+for\s+helping)(?:[\s,!.]+)?$',
-    ]
-
-    CONVERSATIONAL_IDENTITY = [
         r'^(?:who\s+are\s+you|what\s+are\s+you|what\s+is\s+your\s+name|are\s+you\s+an?\s+ai)(?:[\s,?!.]+)?$',
-        r'^(?:tell\s+me\s+about\s+(?:yourself|legalai)|introduce\s+yourself)(?:[\s,?!.]+)?$',
-        r'^(?:help|help\s+me|can\s+you\s+help\s+me|i\s+need\s+(?:some\s+)?help|hey\s+can\s+you\s+help\s+me)(?:[\s,?!.]+)?$',
-    ]
-
-    CONVERSATIONAL_SMALLTALK = [
-        r'^(?:how\s+are\s+you|how\s+are\s+you\s+doing|how\'s\s+it\s+going(?:\s+today)?|how\s+do\s+you\s+do)(?:[\s,?!.]+)?$',
         r'^(?:nice\s+to\s+meet\s+you|pleased\s+to\s+meet\s+you)(?:[\s,!.]+)?$',
-        r'^(?:ok|okay|got\s+it|understood|cool|great|awesome|perfect|sure|alright|fine|nice)(?:[\s,!.]+)?$',
+        r'^(?:ok|okay|got\s+it|understood|cool|great|awesome|perfect|sure|alright|fine)(?:[\s,!.]+)?$',
         r'^(?:bye|goodbye|see\s+you|have\s+a\s+(?:nice|good)\s+day)(?:[\s,!.]+)?$',
     ]
 
-    # Emotional, frustration, interpersonal messages (treated as CONVERSATIONAL social interaction)
-    CONVERSATIONAL_INTERPERSONAL = [
-        r'\b(?:fuck\s+(?:you|off)|fuck|screw\s+you|damn(?:\s+it)?|what\s+the\s+(?:hell|fuck)|you\s+(?:suck|are\s+useless|are\s+stupid|are\s+dumb|are\s+an?\s+idiot)|this\s+is\s+(?:stupid|dumb|useless|nonsense|crap|shit)|shut\s+up|bitch|bastard|asshole|idiot|you\'?re\s+(?:useless|stupid|dumb|annoying|terrible|bad|wrong))\b',
-        r'^(?:fuck\s+you|screw\s+you|you\s+suck|you\'?re\s+useless|this\s+is\s+stupid|damn|what\s+the\s+hell)(?:[\s,?!.]+)?$',
-    ]
-
-    CONVERSATIONAL_TOKENS = {
-        "hi", "hello", "hey", "hiya", "howdy", "greetings", "there",
-        "morning", "afternoon", "evening", "day", "good", "today",
-        "thanks", "thank", "you", "thx", "appreciate", "helping",
-        "ok", "okay", "cool", "great", "awesome", "perfect", "sure", "alright", "fine", "nice",
-        "yes", "no", "yep", "nope", "bye", "goodbye",
-        "how", "are", "doing", "going", "do", "can", "help", "me", "what", "is", "your",
-        "tell", "about", "yourself", "assist", "assistance", "please", "i", "need", "some", "a",
-        "it", "its", "am", "well", "fine", "fro", "for", "things", "able", "capabilities",
-        "features", "services", "provide"
-    }
-
     # -------------------------------------------------------------------------
-    # 6. AMBIGUOUS PATTERNS
-    # Unclear, incomplete, isolated tokens or demonstratives lacking context
+    # 10. ANAPHORIC CONTEXT PATTERNS (GENUINE CONTINUATION)
+    # Only when the user uses demonstratives referring back to the previous turn.
     # -------------------------------------------------------------------------
-    AMBIGUOUS_PATTERNS = [
-        r'^(?:what\s+about\s+(?:that|this|that\s+one|it)|explain\s+(?:that|this|it)|tell\s+me\s+(?:more\s+about\s+that|about\s+it)|and\s+(?:that|then)|how\s+about\s+that)(?:[\s,?!.]+)?$',
-        r'^(?:tell\s+me\s+about\s+this|what\s+about\s+this\s+section|what\s+about\s+this\s+act|what\s+about\s+this)(?:[\s,?!.]+)?$',
-        r'^(?:49p|xyz|abc|foo|bar|test|123|qwe|asdf)(?:[\s,?!.]+)?$',
+    ANAPHORIC_PATTERNS = [
+        r'^(?:what\s+about\s+(?:that|it|this|the\s+former|the\s+latter)|explain\s+(?:that|it|this\s+further|more)|can\s+you\s+elaborate(?:\s+on\s+that)?|why\s+is\s+that|and\s+then\s+what)(?:[\s,?!.]+)?$',
+        r'^(?:for\s+odd\s+or\s+even|can\s+you\s+make\s+it\s+shorter\??|what\s+about\s+the\s+previous\s+one\??)(?:[\s,?!.]+)?$',
+        r'^(?:what\s+punishment\s+applies\??|what\s+is\s+the\s+penalty\??)$',
     ]
 
     def __init__(self):
-        self._case_regexes = [re.compile(p, re.IGNORECASE) for p in self.CASE_MATTER_PATTERNS]
-        self._statute_regexes = [re.compile(p, re.IGNORECASE) for p in self.STATUTE_SECTION_PATTERNS]
-        self._act_regexes = [re.compile(p, re.IGNORECASE) for p in self.ACT_NAME_PATTERNS]
-        self._legal_term_regexes = [re.compile(p, re.IGNORECASE) for p in self.SUBSTANTIVE_LEGAL_TERMS]
+        self._system_regexes = [re.compile(p, re.IGNORECASE) for p in self.SYSTEM_PATTERNS]
+        self._tech_ai_regexes = [re.compile(p, re.IGNORECASE) for p in self.TECHNICAL_AI_PATTERNS]
+        self._case_mgmt_regexes = [re.compile(p, re.IGNORECASE) for p in self.CASE_MANAGEMENT_PATTERNS]
+        self._hearing_prep_regexes = [re.compile(p, re.IGNORECASE) for p in self.HEARING_PREP_PATTERNS]
+        self._case_evidence_regexes = [re.compile(p, re.IGNORECASE) for p in self.CASE_EVIDENCE_PATTERNS]
+        self._statute_sec_regexes = [re.compile(p, re.IGNORECASE) for p in self.STATUTE_SECTION_PATTERNS]
+        self._act_name_regexes = [re.compile(p, re.IGNORECASE) for p in self.ACT_NAME_PATTERNS]
+        self._legal_concept_regexes = [re.compile(p, re.IGNORECASE) for p in self.LEGAL_CONCEPT_PATTERNS]
         self._out_of_scope_regexes = [re.compile(p, re.IGNORECASE) for p in self.OUT_OF_SCOPE_PATTERNS]
-        self._capability_regexes = [re.compile(p, re.IGNORECASE) for p in self.CAPABILITY_PATTERNS]
-        self._ambiguous_regexes = [re.compile(p, re.IGNORECASE) for p in self.AMBIGUOUS_PATTERNS]
-
-        self._conv_regexes = [
-            re.compile(p, re.IGNORECASE) for p in (
-                self.CONVERSATIONAL_GREETINGS +
-                self.CONVERSATIONAL_GRATITUDE +
-                self.CONVERSATIONAL_IDENTITY +
-                self.CONVERSATIONAL_SMALLTALK +
-                self.CONVERSATIONAL_INTERPERSONAL
-            )
-        ]
+        self._conversational_regexes = [re.compile(p, re.IGNORECASE) for p in self.CONVERSATIONAL_PATTERNS]
+        self._anaphoric_regexes = [re.compile(p, re.IGNORECASE) for p in self.ANAPHORIC_PATTERNS]
 
     def classify(
         self,
         message: str,
-        conversation_history: Optional[List[Dict[str, Any]]] = None
-    ) -> RoutingResult:
+        conversation_history: Optional[List[Dict[str, Any]]] = None,
+        case_id: Optional[str] = None,
+        mode: Optional[str] = None
+    ) -> QueryDecision:
         """
-        Deterministically classifies incoming message into:
-        - CONVERSATIONAL
-        - LEGAL_QUERY
-        - CASE_QUERY
-        - OUT_OF_SCOPE
-        - AMBIGUOUS
-
-        Strict Architectural Principles:
-        1. Capability queries ("what are the things you can able to do fro me") route to CONVERSATIONAL.
-        2. Legal anchors (provision identifiers, enactments, substantive penal/civil concepts)
-           are REQUIRED before routing to LEGAL_QUERY. Generic words ("case", "law", "document", "issue")
-           do NOT qualify as legal anchors alone.
-        3. Explicit legal intent overrides casual conversational framing ("Hi, what is Section 66C?").
-        4. Out-of-scope non-legal queries route to OUT_OF_SCOPE.
-        5. Queries lacking legal anchors, case context, and conversational intent route to AMBIGUOUS.
-           Uncertain does NOT mean LEGAL_QUERY.
+        Universal Query Understanding & Adaptive Decision.
+        Decouples Intent from Context, Data Source, and Model/Adapter.
         """
         cleaned = message.strip()
         if not cleaned:
-            return RoutingResult(
+            return QueryDecision(
                 intent=QueryIntent.CONVERSATIONAL,
                 confidence=1.0,
-                reason="Empty or whitespace query treated as conversational prompt.",
+                reason="Empty query treated as conversational prompt.",
                 matched_patterns=["EMPTY_QUERY"],
-                sub_intent="GREETING",
-                legal_intent_confidence=0.0,
-                case_intent_confidence=0.0
+                sub_intent="GREETING"
             )
 
         # ---------------------------------------------------------------------
-        # STEP 1: Scan for anchors
+        # STEP 1: Scan for substantive anchors and entities
         # ---------------------------------------------------------------------
-        matched_case = [m.group(0) for r in self._case_regexes if (m := r.search(cleaned))]
+        matched_statute_provisions = [m.group(0) for r in self._statute_sec_regexes if (m := r.search(cleaned))]
+        matched_statute_acts = [m.group(0) for r in self._act_name_regexes if (m := r.search(cleaned))]
+        matched_legal_concepts = [m.group(0) for r in self._legal_concept_regexes if (m := r.search(cleaned))]
         
-        matched_statute_provisions = [m.group(0) for r in self._statute_regexes if (m := r.search(cleaned))]
-        matched_statute_acts = [m.group(0) for r in self._act_regexes if (m := r.search(cleaned))]
-        matched_substantive_terms = [m.group(0) for r in self._legal_term_regexes if (m := r.search(cleaned))]
-        
-        has_legal_anchor = bool(matched_statute_provisions or matched_statute_acts or matched_substantive_terms)
-        all_legal_matches = matched_statute_provisions + matched_statute_acts + matched_substantive_terms
-
-        matched_capability = [m.group(0) for r in self._capability_regexes if (m := r.search(cleaned))]
+        matched_system = [m.group(0) for r in self._system_regexes if (m := r.search(cleaned))]
+        matched_tech_ai = [m.group(0) for r in self._tech_ai_regexes if (m := r.search(cleaned))]
+        matched_case_mgmt = [m.group(0) for r in self._case_mgmt_regexes if (m := r.search(cleaned))]
+        matched_hearing_prep = [m.group(0) for r in self._hearing_prep_regexes if (m := r.search(cleaned))]
+        matched_case_evidence = [m.group(0) for r in self._case_evidence_regexes if (m := r.search(cleaned))]
         matched_out_of_scope = [m.group(0) for r in self._out_of_scope_regexes if (m := r.search(cleaned))]
+        matched_conv = [m.group(0) for r in self._conversational_regexes if (m := r.match(cleaned))]
 
-        # Token-based capability fallback check (handles word salad and typo variations)
-        is_capability = bool(matched_capability)
-        if not is_capability:
-            lower = cleaned.lower()
-            if ("what" in lower or "how" in lower or "tell" in lower) and \
-               ("you" in lower or "legalai" in lower) and \
-               ("do" in lower or "help" in lower or "assist" in lower or "capabilities" in lower or "features" in lower or "able" in lower or "ask" in lower):
-                is_capability = True
-                matched_capability = ["CAPABILITY_TOKEN_COMBINATION"]
+        has_exact_provision = bool(matched_statute_provisions and (matched_statute_acts or "section" in cleaned.lower() or "article" in cleaned.lower()))
+        has_legal_concept = bool(matched_statute_acts or matched_legal_concepts)
+        
+        # Entity bundle
+        entities = {
+            "provisions": matched_statute_provisions,
+            "acts": matched_statute_acts,
+            "legal_concepts": matched_legal_concepts,
+            "system_entities": matched_system,
+            "tech_ai_entities": matched_tech_ai,
+            "case_mgmt_entities": matched_case_mgmt,
+            "available_case_id": case_id
+        }
 
         # ---------------------------------------------------------------------
-        # STEP 2: Handle Capability Inquiries
-        # "What can you do for me", "what are the things you can able to do fro me"
-        # Capability inquiry overrides generic words ("legalai", "law", "questions").
-        # Only explicit statutory provisions or active case references override capability.
+        # STEP 2: Handle Explicit System / Product Inquiries
+        # Questions asking what model powers LegalAI, how it works, capabilities.
+        # Strict Rule: Must NEVER enter Case RAG or Legal RAG.
         # ---------------------------------------------------------------------
-        if is_capability:
-            # Check if there is an explicit provision or specific Act reference
-            # e.g., "What can you do regarding Section 66C IT Act?" -> LEGAL_QUERY
-            if matched_statute_provisions or (matched_statute_acts and not any(p in ("what is an act", "act number") for p in matched_statute_acts)):
-                return RoutingResult(
-                    intent=QueryIntent.LEGAL_QUERY,
-                    confidence=0.95,
-                    reason="Capability inquiry combined with explicit statutory provision or enactment.",
-                    matched_patterns=all_legal_matches,
-                    sub_intent="LEGAL_CAPABILITY",
-                    legal_intent_confidence=0.95,
-                    case_intent_confidence=0.0
-                )
-            # Check if there is a specific case anchor
-            if matched_case:
-                return RoutingResult(
-                    intent=QueryIntent.CASE_QUERY,
-                    confidence=0.95,
-                    reason="Capability inquiry addressed to specific case matter or documents.",
-                    matched_patterns=matched_case,
-                    sub_intent="CASE_CAPABILITY",
-                    legal_intent_confidence=0.0,
-                    case_intent_confidence=0.95
-                )
-            # Pure capability inquiry -> CONVERSATIONAL with zero retrieval
-            return RoutingResult(
-                intent=QueryIntent.CONVERSATIONAL,
+        if matched_system and not (has_exact_provision and not any("legalai" in cleaned.lower() for _ in [1])):
+            return QueryDecision(
+                intent=QueryIntent.SYSTEM_INFO,
                 confidence=0.98,
-                reason="Query is a natural capability inquiry asking what the assistant can do.",
-                matched_patterns=matched_capability or ["CAPABILITY_INQUIRY"],
-                sub_intent="CAPABILITY_INQUIRY",
-                legal_intent_confidence=0.0,
-                case_intent_confidence=0.0
+                reason="Query inquires about LegalAI system architecture, foundation model, or product specifications.",
+                sub_intent="SYSTEM_SPECIFICATION",
+                matched_patterns=matched_system,
+                entities=entities,
+                requires_case_context=False,
+                requires_case_documents=False,
+                requires_case_metadata=False,
+                requires_legal_rag=False,
+                requires_system_context=True,
+                requires_base_qwen=True,
+                requires_legalai_v2=False,
+                requires_case_analysis_v1=False
             )
 
         # ---------------------------------------------------------------------
-        # STEP 3: PRIORITY 1 — Specific Case / Matter Inquiry
+        # STEP 3: Handle Technical AI / ML Knowledge Inquiries
+        # Explaining AI, ML, LLMs, RAG, LoRA, fine-tuning, vector databases.
+        # Strict Rule: Base Qwen handles these conceptually. Zero RAG retrieval.
         # ---------------------------------------------------------------------
-        if matched_case:
-            return RoutingResult(
+        if matched_tech_ai and not (matched_case_evidence or has_exact_provision):
+            return QueryDecision(
+                intent=QueryIntent.TECHNICAL_AI,
+                confidence=0.98,
+                reason="Query asks for a technical explanation of artificial intelligence or LLM concept.",
+                sub_intent="TECHNICAL_CONCEPT",
+                matched_patterns=matched_tech_ai,
+                entities=entities,
+                requires_case_context=False,
+                requires_case_documents=False,
+                requires_case_metadata=False,
+                requires_legal_rag=False,
+                requires_technical_explanation=True,
+                requires_base_qwen=True,
+                requires_legalai_v2=False,
+                requires_case_analysis_v1=False
+            )
+
+        # ---------------------------------------------------------------------
+        # STEP 4: Handle Case Management & Portfolio Workload Inquiries
+        # Questions about priority, urgency, focus, hearings this week, deadlines.
+        # Strict Rule: Queries SQLite application database metadata; ZERO Case Document RAG.
+        # ---------------------------------------------------------------------
+        if matched_case_mgmt:
+            return QueryDecision(
+                intent=QueryIntent.CASE_MANAGEMENT,
+                confidence=0.98,
+                reason="Query asks about case priority, urgency, task focus, or upcoming court schedule across matters.",
+                sub_intent="PORTFOLIO_WORKLOAD",
+                matched_patterns=matched_case_mgmt,
+                entities=entities,
+                requires_case_context=bool(case_id),
+                requires_case_documents=False,
+                requires_case_metadata=True,
+                requires_legal_rag=False,
+                requires_base_qwen=True,
+                requires_legalai_v2=False,
+                requires_case_analysis_v1=False,
+                case_intent_confidence=0.95
+            )
+
+        # ---------------------------------------------------------------------
+        # STEP 5: Handle Hearing Preparation for Active Matter
+        # Strategic preparation for next hearing, judge arguments.
+        # ---------------------------------------------------------------------
+        if matched_hearing_prep:
+            return QueryDecision(
+                intent=QueryIntent.HEARING_PREPARATION,
+                confidence=0.98,
+                reason="Query asks for strategic hearing preparation and key argument formulation for a matter.",
+                sub_intent="HEARING_PREPARATION",
+                matched_patterns=matched_hearing_prep,
+                entities=entities,
+                requires_case_context=True,
+                requires_case_documents=True,
+                requires_case_metadata=True,
+                requires_legal_rag=False,
+                requires_case_analysis_v1=True,
+                case_intent_confidence=0.98,
+                case_id=case_id
+            )
+
+        # ---------------------------------------------------------------------
+        # STEP 6: Handle Case Document / Evidence Queries
+        # Specific evidentiary inquiries: missing documents, contradictions, key facts.
+        # ---------------------------------------------------------------------
+        if matched_case_evidence:
+            return QueryDecision(
                 intent=QueryIntent.CASE_QUERY,
                 confidence=0.98,
-                reason="Query addresses specific case matter, client position, or evidentiary documents.",
-                matched_patterns=matched_case,
-                sub_intent="CASE_MATTER",
-                legal_intent_confidence=0.0,
-                case_intent_confidence=0.98
+                reason="Query addresses specific case documents, missing evidence, contradictions, or chargesheet facts.",
+                sub_intent="CASE_DOCUMENT_ANALYSIS",
+                matched_patterns=matched_case_evidence,
+                entities=entities,
+                requires_case_context=True,
+                requires_case_documents=True,
+                requires_case_metadata=False,
+                requires_legal_rag=False,
+                requires_case_analysis_v1=True,
+                case_intent_confidence=0.98,
+                case_id=case_id
             )
 
         # ---------------------------------------------------------------------
-        # STEP 4: PRIORITY 2 — Explicit Legal / Statutory Anchors
-        # Requires verified legal anchor: section, Act, or substantive legal concept.
-        # This strictly overrides general greetings (e.g. "Hi, what is Section 103 BNS?").
+        # STEP 7: Handle Exact Statutory Provisions (EXACT_PROVISION_QUERY)
+        # Specific section, article, order, rule in an enactment.
+        # Strict Rule: Requires authoritative statutory RAG + LegalAI V2 LoRA.
         # ---------------------------------------------------------------------
-        if has_legal_anchor:
-            sub_intent = "EXACT_PROVISION" if matched_statute_provisions else ("ACT_QUERY" if matched_statute_acts else "SUBSTANTIVE_LEGAL")
-            return RoutingResult(
-                intent=QueryIntent.LEGAL_QUERY,
+        if matched_statute_provisions or (matched_statute_acts and any(kw in cleaned.lower() for kw in ["section", "article", "order", "rule", "clause"])):
+            all_matches = matched_statute_provisions + matched_statute_acts
+            return QueryDecision(
+                intent=QueryIntent.EXACT_PROVISION_QUERY,
                 confidence=0.98,
-                reason="Query contains verified legal anchors (statutory citations, enactments, or substantive legal concepts).",
-                matched_patterns=all_legal_matches,
-                sub_intent=sub_intent,
+                reason="Query contains specific statutory provision identifier requiring authoritative RAG retrieval.",
+                sub_intent="EXACT_STATUTORY_PROVISION",
+                matched_patterns=all_matches,
+                entities=entities,
+                requires_case_context=False,
+                requires_case_documents=False,
+                requires_case_metadata=False,
+                requires_legal_rag=True,
+                requires_exact_provision_resolution=True,
+                requires_legalai_v2=True,
                 legal_intent_confidence=0.98,
-                case_intent_confidence=0.0
+                target_act=matched_statute_acts[0] if matched_statute_acts else None,
+                target_provision=matched_statute_provisions[0] if matched_statute_provisions else None
             )
 
         # ---------------------------------------------------------------------
-        # STEP 5: PRIORITY 3 — Clearly Out of Scope Non-Legal Inquiries
-        # Coding, movies, sports, tech shopping, recipes, general trivia
+        # STEP 8: Handle General Legal Concepts (LEGAL_QUERY)
+        # Substantive offences, procedural remedies, civil rights (negligence, bail, etc.)
+        # Even without the literal word 'legal' or 'law'.
+        # ---------------------------------------------------------------------
+        if has_legal_concept:
+            all_matches = matched_statute_acts + matched_legal_concepts
+            return QueryDecision(
+                intent=QueryIntent.LEGAL_QUERY,
+                confidence=0.95,
+                reason="Query addresses a substantive legal concept or procedural remedy under Indian law.",
+                sub_intent="LEGAL_CONCEPT",
+                matched_patterns=all_matches,
+                entities=entities,
+                requires_case_context=False,
+                requires_case_documents=False,
+                requires_case_metadata=False,
+                requires_legal_rag=True,
+                requires_legalai_v2=True,
+                legal_intent_confidence=0.95
+            )
+
+        # ---------------------------------------------------------------------
+        # STEP 9: Clearly Out of Scope Non-Legal Inquiries
+        # Coding, sports, movies, recipes, shopping, general trivia.
+        # Strict Rule: Never send to Legal RAG, never send to Case RAG.
         # ---------------------------------------------------------------------
         if matched_out_of_scope:
-            return RoutingResult(
+            return QueryDecision(
                 intent=QueryIntent.OUT_OF_SCOPE,
                 confidence=0.98,
-                reason="Query is outside the legal domain (programming, entertainment, sports, or general trivia).",
-                matched_patterns=matched_out_of_scope,
+                reason="Query is outside the legal and supported AI assistant scope (coding, sports, entertainment, recipes).",
                 sub_intent="NON_LEGAL_OUT_OF_SCOPE",
-                legal_intent_confidence=0.0,
-                case_intent_confidence=0.0
+                matched_patterns=matched_out_of_scope,
+                entities=entities,
+                requires_case_context=False,
+                requires_case_documents=False,
+                requires_case_metadata=False,
+                requires_legal_rag=False,
+                requires_base_qwen=False
             )
 
         # ---------------------------------------------------------------------
-        # STEP 6: PRIORITY 4 — Pure Conversational Greetings & Courtesies
+        # STEP 10: Pure Conversational Greetings & Courtesies
         # ---------------------------------------------------------------------
-        for r in self._conv_regexes:
-            m = r.match(cleaned)
-            if m:
-                return RoutingResult(
-                    intent=QueryIntent.CONVERSATIONAL,
-                    confidence=0.95,
-                    reason="Message is an ordinary conversational greeting, capability inquiry, or gratitude.",
-                    matched_patterns=[m.group(0)],
-                    sub_intent="GREETING",
-                    legal_intent_confidence=0.0,
-                    case_intent_confidence=0.0
-                )
-
-        # Word-level conversational check for flexible greetings
-        tokens = re.findall(r'[a-zA-Z]+', cleaned.lower())
-        if tokens and len(tokens) <= 12 and all(t in self.CONVERSATIONAL_TOKENS for t in tokens):
-            return RoutingResult(
+        if matched_conv:
+            return QueryDecision(
                 intent=QueryIntent.CONVERSATIONAL,
-                confidence=0.95,
-                reason="All tokens in message match conversational vocabulary.",
-                matched_patterns=["CONVERSATIONAL_TOKENS"],
-                sub_intent="CONVERSATIONAL_TOKENS",
-                legal_intent_confidence=0.0,
-                case_intent_confidence=0.0
+                confidence=0.98,
+                reason="Message is an ordinary conversational greeting, courtesy, gratitude, or pleasantry.",
+                sub_intent="GREETING",
+                matched_patterns=matched_conv,
+                entities=entities,
+                requires_case_context=False,
+                requires_case_documents=False,
+                requires_case_metadata=False,
+                requires_legal_rag=False,
+                requires_base_qwen=False
             )
 
         # ---------------------------------------------------------------------
-        # STEP 7: PRIORITY 5 — Conversation Context Follow-Up
+        # STEP 11: Anaphoric Context History Resolution
+        # ONLY consulted when the query contains an explicit anaphoric pointer
+        # (e.g. "what about that?", "for odd or even", "what about the previous one?", "can you make it shorter?")
+        # AND lacks an independent substantive entity.
         # ---------------------------------------------------------------------
-        if conversation_history and len(conversation_history) > 0:
-            last_substantive_intent = None
+        is_anaphoric = any(r.match(cleaned) for r in self._anaphoric_regexes)
+        if is_anaphoric and conversation_history and len(conversation_history) > 0:
+            last_turn = None
             for turn in reversed(conversation_history):
-                content = str(turn.get("content", "")).lower()
                 q_type = str(turn.get("query_type", "")).upper()
-                if q_type in ("OUT_OF_SCOPE", "GENERAL_NON_LEGAL"):
-                    last_substantive_intent = QueryIntent.OUT_OF_SCOPE
+                if q_type:
+                    last_turn = q_type
                     break
-                elif q_type == "LEGAL_QUERY":
-                    last_substantive_intent = QueryIntent.LEGAL_QUERY
-                    break
-                elif q_type == "CASE_QUERY":
-                    last_substantive_intent = QueryIntent.CASE_QUERY
-                    break
-                elif turn.get("role") == "user":
-                    if any(term in content for term in ["python", "code", "c++", "movie", "film", "vijay", "cricket", "recipe"]):
-                        last_substantive_intent = QueryIntent.OUT_OF_SCOPE
-                        break
-                    elif any(term in content for term in ["section", "bns", "bnss", "bsa", "act", "offence", "bail", "law"]):
-                        last_substantive_intent = QueryIntent.LEGAL_QUERY
-                        break
-                    elif any(term in content for term in ["case", "matter", "evidence", "witness", "fir", "hearing"]):
-                        last_substantive_intent = QueryIntent.CASE_QUERY
-                        break
-
-            if len(cleaned.split()) <= 12 and last_substantive_intent:
-                if last_substantive_intent == QueryIntent.OUT_OF_SCOPE:
-                    return RoutingResult(
+            
+            if last_turn:
+                if last_turn in ("OUT_OF_SCOPE", "GENERAL_NON_LEGAL"):
+                    return QueryDecision(
                         intent=QueryIntent.OUT_OF_SCOPE,
-                        confidence=0.90,
-                        reason="Contextual follow-up continues previous out-of-scope non-legal inquiry.",
-                        matched_patterns=["CONTEXT_FOLLOW_UP_OUT_OF_SCOPE"],
+                        confidence=0.95,
+                        reason="Anaphoric follow-up continues previous out-of-scope inquiry.",
                         sub_intent="CONTEXT_FOLLOW_UP",
-                        legal_intent_confidence=0.0,
-                        case_intent_confidence=0.0
+                        matched_patterns=["ANAPHORIC_OUT_OF_SCOPE"],
+                        entities=entities
                     )
-                elif last_substantive_intent == QueryIntent.LEGAL_QUERY:
-                    return RoutingResult(
+                elif last_turn in ("EXACT_PROVISION_QUERY", "LEGAL_QUERY"):
+                    return QueryDecision(
                         intent=QueryIntent.LEGAL_QUERY,
                         confidence=0.90,
-                        reason="Contextual follow-up to previous statutory legal query.",
-                        matched_patterns=["CONTEXT_FOLLOW_UP_LEGAL"],
+                        reason="Anaphoric follow-up continues previous legal inquiry.",
                         sub_intent="CONTEXT_FOLLOW_UP",
-                        legal_intent_confidence=0.90,
-                        case_intent_confidence=0.0
+                        matched_patterns=["ANAPHORIC_LEGAL"],
+                        entities=entities,
+                        requires_legal_rag=True,
+                        requires_legalai_v2=True,
+                        legal_intent_confidence=0.90
                     )
-                elif last_substantive_intent == QueryIntent.CASE_QUERY:
-                    return RoutingResult(
+                elif last_turn in ("CASE_QUERY", "HEARING_PREPARATION"):
+                    return QueryDecision(
                         intent=QueryIntent.CASE_QUERY,
                         confidence=0.90,
-                        reason="Contextual follow-up to previous case inquiry.",
-                        matched_patterns=["CONTEXT_FOLLOW_UP_CASE"],
+                        reason="Anaphoric follow-up continues previous case inquiry.",
                         sub_intent="CONTEXT_FOLLOW_UP",
-                        legal_intent_confidence=0.0,
-                        case_intent_confidence=0.90
+                        matched_patterns=["ANAPHORIC_CASE"],
+                        entities=entities,
+                        requires_case_context=True,
+                        requires_case_documents=True,
+                        requires_case_analysis_v1=True,
+                        case_intent_confidence=0.90,
+                        case_id=case_id
                     )
 
         # ---------------------------------------------------------------------
-        # STEP 8: PRIORITY 6 — Ambiguous Query Detection
-        # Explicit ambiguous demonstratives: "tell me about this", "what about this section?", "explain this"
+        # STEP 12: Fail-Closed Ambiguous Fallback
+        # If an inquiry has no identifiable anchors, is not anaphoric, and is not conversational:
+        # Ask for clarification. NEVER blindly invoke General Legal RAG or Case RAG.
         # ---------------------------------------------------------------------
-        for r in self._ambiguous_regexes:
-            m = r.match(cleaned)
-            if m:
-                return RoutingResult(
-                    intent=QueryIntent.AMBIGUOUS,
-                    confidence=0.95,
-                    reason="Query is demonstrative, cryptic, or incomplete without identifiable context.",
-                    matched_patterns=[m.group(0)],
-                    sub_intent="AMBIGUOUS_DEMONSTRATIVE",
-                    legal_intent_confidence=0.0,
-                    case_intent_confidence=0.0
-                )
-
-        words = cleaned.split()
-        if len(words) <= 2 and len(cleaned) <= 15 and re.match(r'^[a-zA-Z0-9_\-\.\?]+$', cleaned):
-            return RoutingResult(
-                intent=QueryIntent.AMBIGUOUS,
-                confidence=0.90,
-                reason="Isolated cryptic token or abbreviation requires clarification.",
-                matched_patterns=["SHORT_AMBIGUOUS_TOKEN"],
-                sub_intent="CRYPTIC_TOKEN",
-                legal_intent_confidence=0.0,
-                case_intent_confidence=0.0
-            )
-
-        # ---------------------------------------------------------------------
-        # STEP 9: PRIORITY 7 — Safe Ambiguous Fallback
-        # CRITICAL PRINCIPLE: Uncertain does NOT automatically mean LEGAL_QUERY.
-        # If an inquiry has NO legal anchor, NO case anchor, is NOT out-of-scope,
-        # and is NOT conversational, it routes to AMBIGUOUS for clarification.
-        # It NEVER blindly invokes General Legal RAG.
-        # ---------------------------------------------------------------------
-        return RoutingResult(
+        return QueryDecision(
             intent=QueryIntent.AMBIGUOUS,
             confidence=0.85,
-            reason="Query lacks identifiable legal anchors, statutory references, or case context. Clarification requested.",
-            matched_patterns=["AMBIGUOUS_NO_LEGAL_ANCHOR"],
+            reason="Query lacks identifiable legal, case, system, or technical anchors. Clarification requested.",
             sub_intent="CLARIFICATION_REQUIRED",
-            legal_intent_confidence=0.0,
-            case_intent_confidence=0.0
+            matched_patterns=["AMBIGUOUS_NO_ANCHOR"],
+            entities=entities,
+            requires_case_context=False,
+            requires_case_documents=False,
+            requires_case_metadata=False,
+            requires_legal_rag=False
         )
 
 
 # Global singleton router instance
-_GLOBAL_ROUTER: Optional[QueryRouter] = None
+_GLOBAL_ROUTER: Optional[UniversalQueryRouter] = None
 
 
-def get_query_router() -> QueryRouter:
-    """Returns the singleton QueryRouter instance."""
+def get_query_router() -> UniversalQueryRouter:
+    """Returns the singleton UniversalQueryRouter instance."""
     global _GLOBAL_ROUTER
     if _GLOBAL_ROUTER is None:
-        _GLOBAL_ROUTER = QueryRouter()
+        _GLOBAL_ROUTER = UniversalQueryRouter()
     return _GLOBAL_ROUTER
+
+
+# Backward-compatibility alias
+QueryRouter = UniversalQueryRouter

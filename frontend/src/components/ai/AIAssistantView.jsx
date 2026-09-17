@@ -122,28 +122,41 @@ export const AIAssistantView = ({
 
   const getThinkingStagesForQuery = (text, mode) => {
     const t = (text || '').toLowerCase();
-    const isLegal = mode === 'GENERAL' && (
-      /\b(bns|bnss|bsa|ipc|crpc|iea|section|act|statute|offence|punishment|bail|cognizable|bailable|high court|supreme court)\b/i.test(t)
-    );
-    const isCase = mode === 'SINGLE_CASE' || mode === 'MULTI_CASE' || /\b(my case|our case|client|evidence|charge sheet|hearing|witness)\b/i.test(t);
+    const isTechOrSystem = /\b(qwen|model|llm|rag|lora|fine-?tuning|embeddings?|vector|database|powers?|built|technolog|ai|machine learning)\b/i.test(t);
+    const isCaseEvidence = /\b(evidence|missing|contradiction|witness|chargesheet|pleading|allege|allegation)\b/i.test(t) || 
+      (/\b(my case|our case|this case|uploaded documents?)\b/i.test(t) && !/\b(which case|focus|priority|urgent|hearing)\b/i.test(t));
+    const isCaseMgmt = /\b(focus|priority|urgent|upcoming hearing|next hearing|deadlines?|calendar|cases?)\b/i.test(t);
+    const isLegal = /\b(bns|bnss|bsa|ipc|crpc|iea|section|act|statute|offence|punishment|bail|cognizable|bailable|high court|supreme court|negligence|defamation|fir|self[\s-]defence|consideration|contract)\b/i.test(t);
 
-    if (isCase) {
+    if (isTechOrSystem) {
       return [
-        "Reviewing the case materials… 📁",
-        "Checking the available evidence… ⚖️",
-        "Preparing the case analysis…"
+        "Analyzing technical architecture… 🧠",
+        "Formulating system explanation…"
+      ];
+    }
+    if (isCaseMgmt) {
+      return [
+        "Consulting active case portfolio… 📁",
+        "Reviewing priorities and hearings…"
+      ];
+    }
+    if (isCaseEvidence) {
+      return [
+        "Reviewing case documents… 📁",
+        "Evaluating evidentiary points… ⚖️",
+        "Synthesizing case findings…"
       ];
     }
     if (isLegal) {
       return [
-        "Understanding your question…",
-        "Reviewing relevant legal sources… ⚖️",
-        "Preparing a grounded response…"
+        "Understanding legal inquiry…",
+        "Retrieving authoritative legal provisions… ⚖️",
+        "Preparing grounded statutory response…"
       ];
     }
     return [
       "Thinking…",
-      "Analyzing the matter…"
+      "Analyzing query…"
     ];
   };
 

@@ -52,6 +52,9 @@ case_rag_pipeline: Optional[CaseRAGPipeline] = None
 indian_knowledge_pipeline: Optional[GeneralIndianLegalKnowledgePipeline] = None
 indian_knowledge_bridge: Optional[IndianLegalRouterBridge] = None
 
+# Async lock protecting GPU singleton model generation and adapter state switching
+model_concurrency_lock = asyncio.Lock()
+
 # SQLite database for Cases and Documents metadata
 APP_DB_PATH = REPO_ROOT / "data" / "legalai_app.db"
 DOCS_STORAGE_DIR = REPO_ROOT / "data" / "case_documents"
@@ -579,6 +582,156 @@ def generate_conversational_response(
     return pipeline.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
 
 
+def generate_system_info_response(message: str) -> str:
+    """
+    Generates a factual, verified system description of LegalAI architecture.
+    Does NOT invent unverified numbers (e.g. no unverified '840+ Acts').
+    Never exposes internal placeholders like MODEL_AI.
+    """
+    return (
+        "**LegalAI System Architecture & Specifications**\n\n"
+        "• **Foundation Model**: `Qwen/Qwen2.5-14B-Instruct` (14-billion parameter decoder-only language model).\n"
+        "• **Domain Adaptation**: LegalAI V2 LoRA fine-tuned on verified Indian legal reasoning, statutory analysis, and penal provisions.\n"
+        "• **Case Intelligence**: Case Analysis V1 LoRA specialized in case file synthesis, evidentiary gap analysis, and hearing preparation.\n"
+        "• **Knowledge Architecture**: Dual-layer Retrieval-Augmented Generation (RAG):\n"
+        "  1. *General Indian Statutory RAG*: Central and State Acts (including BNS, BNSS, BSA, IT Act, Companies Act, POCSO, CPC, Arbitration Act) with exact Act/Section grounding, temporal validity checks, and statutory abstention.\n"
+        "  2. *Private Case Document RAG*: Strict case-isolated vector and BM25 index over uploaded case pleadings, orders, and witness statements.\n"
+        "• **Portfolio & Case Management**: Integrated application database tracking case metadata, priorities, hearing countdowns, and court calendar schedules.\n\n"
+        "*LegalAI operates strictly within verified Indian law and case facts.*"
+    )
+
+
+def generate_base_qwen_technical_response(
+    pipeline: LegalAIRAGPipeline,
+    message: str,
+    history: Optional[List[Dict[str, Any]]] = None,
+    max_new_tokens: int = 256
+) -> str:
+    """
+    Generates technical explanations of AI/ML/LLM concepts (Qwen, RAG, LoRA, embeddings)
+    using base Qwen2.5-14B-Instruct with LoRA adapters disabled.
+    Does NOT invoke Legal RAG or Case RAG.
+    """
+    system_prompt = (
+        "You are an expert AI engineer and technical educator. "
+        "Provide clear, accurate, and concise conceptual explanations of artificial intelligence, "
+        "large language models, retrieval augmented generation (RAG), parameter-efficient fine-tuning (LoRA), "
+        "and related machine learning concepts. Be helpful, structured, and informative."
+    )
+
+    chat_turns = [{"role": "system", "content": system_prompt}]
+    if history:
+        for turn in history[-4:]:
+            r = turn.get("role")
+            c = turn.get("content", "")
+            if r in ("user", "assistant") and c:
+                chat_turns.append({"role": r, "content": c})
+    chat_turns.append({"role": "user", "content": message})
+
+    prompt = pipeline.tokenizer.apply_chat_template(
+        chat_turns,
+        tokenize=False,
+        add_generation_prompt=True
+    )
+    inputs = pipeline.tokenizer(prompt, return_tensors="pt", add_special_tokens=False)
+    inputs = {k: v.to(pipeline.device) for k, v in inputs.items()}
+    input_length = inputs["input_ids"].shape[1]
+
+    # Generate with adapters disabled to run pure base Qwen
+    has_disable = hasattr(pipeline.model, "disable_adapter")
+    with torch.inference_mode():
+        if has_disable:
+            with pipeline.model.disable_adapter():
+                output_ids = pipeline.model.generate(
+                    **inputs,
+                    max_new_tokens=max_new_tokens,
+                    do_sample=True,
+                    temperature=0.7,
+                    top_p=0.9,
+                    pad_token_id=pipeline.tokenizer.pad_token_id,
+                    eos_token_id=pipeline.tokenizer.eos_token_id,
+                )
+        else:
+            output_ids = pipeline.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=True,
+                temperature=0.7,
+                top_p=0.9,
+                pad_token_id=pipeline.tokenizer.pad_token_id,
+                eos_token_id=pipeline.tokenizer.eos_token_id,
+            )
+
+    new_tokens = output_ids[0, input_length:]
+    return pipeline.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+
+
+def generate_case_management_response(message: str, active_case_id: Optional[str] = None) -> str:
+    """
+    Answers portfolio questions (priority, urgency, upcoming hearings, focus)
+    by querying the verified application database (data/legalai_app.db, cases table).
+    Does NOT invoke Case Document RAG.
+    """
+    try:
+        conn = sqlite3.connect(APP_DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, caseNumber, title, client, court, priority, status, nextHearing, hearingCountdownDays, description
+            FROM cases
+            ORDER BY 
+                CASE 
+                    WHEN LOWER(priority) = 'urgent' THEN 1
+                    WHEN LOWER(status) = 'urgent' THEN 2
+                    ELSE 3
+                END,
+                CASE 
+                    WHEN hearingCountdownDays IS NOT NULL AND hearingCountdownDays >= 0 THEN hearingCountdownDays
+                    ELSE 999
+                END ASC
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Failed to query cases table for case management: {e}")
+        return "Case management information is temporarily unavailable. Please verify that the application database is accessible."
+
+    if not rows:
+        return "There are currently no active legal cases registered in your workspace."
+
+    # Analyze matters
+    urgent_cases = [r for r in rows if str(r[5]).lower() == 'urgent' or str(r[6]).lower() == 'urgent']
+    upcoming_hearings = [r for r in rows if r[7] and r[7] != 'None scheduled']
+
+    response_lines = ["**Case Portfolio & Workload Overview**\n"]
+
+    if urgent_cases:
+        top_urgent = urgent_cases[0]
+        response_lines.append(
+            f"**Highest Priority Matter**: **{top_urgent[2]}** (`{top_urgent[1]}`)\n"
+            f"• **Client**: {top_urgent[3]}\n"
+            f"• **Court**: {top_urgent[4]}\n"
+            f"• **Priority / Status**: {top_urgent[5].upper()} / {top_urgent[6]}\n"
+            f"• **Next Hearing**: {top_urgent[7]}" + (f" (in {top_urgent[8]} days)" if top_urgent[8] is not None else "") + "\n"
+            f"• **Focus**: {top_urgent[9] or 'Preliminary hearing preparation and injunction review.'}\n"
+        )
+    else:
+        top_matter = rows[0]
+        response_lines.append(
+            f"**Current Matter of Attention**: **{top_matter[2]}** (`{top_matter[1]}`)\n"
+            f"• **Next Hearing**: {top_matter[7]}\n"
+        )
+
+    if upcoming_hearings:
+        response_lines.append("**Upcoming Scheduled Hearings**:")
+        for r in upcoming_hearings[:4]:
+            days_str = f" [in {r[8]} days]" if r[8] is not None else ""
+            response_lines.append(f"• **{r[2]}** (`{r[1]}`): {r[7]}{days_str} — *{r[4]}*")
+        response_lines.append("")
+
+    response_lines.append("*To analyze case documents, evidentiary gaps, or hearing strategy for a specific matter, open the matter in Case Files.*")
+    return "\n".join(response_lines)
+
+
 def generate_ambiguous_response(
     message: str,
     history: Optional[List[Dict[str, Any]]] = None
@@ -1095,14 +1248,129 @@ async def ai_chat(req: AIChatRequest):
             "abstained": False
         }
 
-    # Route 3: CASE_QUERY or (Case Mode and not an explicit statutory, conversational, or out-of-scope query)
+    # Route 2C: SYSTEM_INFO (Verified Architectural Context, Base Qwen, Zero RAG)
+    if route_result.intent == QueryIntent.SYSTEM_INFO:
+        answer_text = generate_system_info_response(req.content)
+        return {
+            "id": f"msg-{int(time.time() * 1000)}",
+            "request_id": f"req-{int(time.time() * 1000)}",
+            "role": "assistant",
+            "timestamp": time.strftime("%I:%M %p"),
+            "content": answer_text,
+            "query_type": "SYSTEM_INFO",
+            "route": "SYSTEM_INFO",
+            "type": "system_info",
+            "reliability": "supported",
+            "reliabilityLabel": "Verified System Architecture",
+            "sources": [],
+            "citations": [],
+            "requires_verification": False,
+            "confidence_status": "SYSTEM_SPECIFICATION",
+            "evidence_status": "VERIFIED_SYSTEM_CONTEXT",
+            "generation_time_sec": round(time.time() - t0, 3),
+            "intent": route_result.intent.value,
+            "sub_intent": getattr(route_result, "sub_intent", "SYSTEM_SPECIFICATION"),
+            "legal_intent_confidence": 0.0,
+            "case_intent_confidence": 0.0,
+            "resolved_act": None,
+            "provision_type": None,
+            "provision_number": None,
+            "retrieval_mode": "NONE",
+            "retrieval_candidate_count": 0,
+            "accepted_source_count": 0,
+            "source_count": 0,
+            "adapter": None,
+            "qwen_invoked": False,
+            "abstained": False
+        }
+
+    # Route 2D: TECHNICAL_AI (Base Qwen Conceptual Explanation, LoRA Disabled, Zero RAG)
+    if route_result.intent == QueryIntent.TECHNICAL_AI:
+        async with model_concurrency_lock:
+            answer_text = await asyncio.to_thread(
+                generate_base_qwen_technical_response,
+                pipeline=pipeline,
+                message=req.content,
+                history=req.history,
+                max_new_tokens=256
+            )
+        return {
+            "id": f"msg-{int(time.time() * 1000)}",
+            "request_id": f"req-{int(time.time() * 1000)}",
+            "role": "assistant",
+            "timestamp": time.strftime("%I:%M %p"),
+            "content": answer_text,
+            "query_type": "TECHNICAL_AI",
+            "route": "TECHNICAL_AI",
+            "type": "technical_ai",
+            "reliability": "supported",
+            "reliabilityLabel": "Base Qwen Technical Explanation",
+            "sources": [],
+            "citations": [],
+            "requires_verification": False,
+            "confidence_status": "BASE_QWEN_TECHNICAL",
+            "evidence_status": "PARAMETRIC_BASE_MODEL",
+            "generation_time_sec": round(time.time() - t0, 3),
+            "intent": route_result.intent.value,
+            "sub_intent": getattr(route_result, "sub_intent", "TECHNICAL_CONCEPT"),
+            "legal_intent_confidence": 0.0,
+            "case_intent_confidence": 0.0,
+            "resolved_act": None,
+            "provision_type": None,
+            "provision_number": None,
+            "retrieval_mode": "NONE",
+            "retrieval_candidate_count": 0,
+            "accepted_source_count": 0,
+            "source_count": 0,
+            "adapter": None,
+            "qwen_invoked": True,
+            "abstained": False
+        }
+
+    # Route 2E: CASE_MANAGEMENT (Application DB cases table, Zero Case RAG)
+    if route_result.intent == QueryIntent.CASE_MANAGEMENT:
+        effective_case_id = req.caseId or (req.selectedCases[0] if (req.selectedCases and len(req.selectedCases) > 0) else None) or req.caseNumber
+        answer_text = generate_case_management_response(req.content, active_case_id=effective_case_id)
+        return {
+            "id": f"msg-{int(time.time() * 1000)}",
+            "request_id": f"req-{int(time.time() * 1000)}",
+            "role": "assistant",
+            "timestamp": time.strftime("%I:%M %p"),
+            "content": answer_text,
+            "query_type": "CASE_MANAGEMENT",
+            "route": "CASE_MANAGEMENT",
+            "type": "case_management",
+            "reliability": "supported",
+            "reliabilityLabel": "Case Portfolio Management",
+            "sources": [],
+            "citations": [],
+            "requires_verification": False,
+            "confidence_status": "CASE_MANAGEMENT_DB",
+            "evidence_status": "APPLICATION_DATABASE",
+            "generation_time_sec": round(time.time() - t0, 3),
+            "intent": route_result.intent.value,
+            "sub_intent": getattr(route_result, "sub_intent", "PORTFOLIO_WORKLOAD"),
+            "legal_intent_confidence": 0.0,
+            "case_intent_confidence": 0.95,
+            "resolved_act": None,
+            "provision_type": None,
+            "provision_number": None,
+            "retrieval_mode": "SQL_METADATA",
+            "retrieval_candidate_count": 0,
+            "accepted_source_count": 0,
+            "source_count": 0,
+            "adapter": None,
+            "qwen_invoked": False,
+            "abstained": False
+        }
+
+    # Route 3: CASE_QUERY or HEARING_PREPARATION (Strictly semantic intent or explicit single-case inquiry)
     effective_case_id = req.caseId or (req.selectedCases[0] if (req.selectedCases and len(req.selectedCases) > 0) else None) or req.caseNumber
     cid, cnum = resolve_case_identifier(effective_case_id)
     rag_case_id = get_best_rag_case_id(case_rag_pipeline, cid, cnum) or effective_case_id
-    is_case_mode = (req.mode == "SINGLE_CASE" and (effective_case_id or rag_case_id)) or (req.selectedCases and len(req.selectedCases) > 0)
+    is_case_intent = route_result.intent in (QueryIntent.CASE_QUERY, QueryIntent.HEARING_PREPARATION)
 
-    if route_result.intent == QueryIntent.CASE_QUERY or (is_case_mode and route_result.intent not in (QueryIntent.LEGAL_QUERY, QueryIntent.CONVERSATIONAL, QueryIntent.OUT_OF_SCOPE, QueryIntent.GENERAL_NON_LEGAL, QueryIntent.AMBIGUOUS)):
-
+    if is_case_intent:
         if not rag_case_id:
             answer_text = generate_case_guidance(None)
             sources = []
@@ -1110,15 +1378,16 @@ async def ai_chat(req: AIChatRequest):
             rel_label = "Case Guidance"
             conf_status = "CASE_GUIDANCE"
         elif case_rag_pipeline:
-            logger.info(f"Trace Single Matter: context={req.mode or 'SINGLE_CASE'}, case_id={rag_case_id}, route=CASE_QUERY, retrieval=CASE_RAG, adapter=case_analysis_v1")
-            print(f"[TRACE] context={req.mode or 'SINGLE_CASE'} | case_id={rag_case_id} | route=CASE_QUERY | retrieval=CASE_RAG | adapter=case_analysis_v1")
-            case_analysis = await asyncio.to_thread(
-                case_rag_pipeline.answer_case_question,
-                question=req.content,
-                case_id=rag_case_id,
-                top_k=6,
-                max_new_tokens=512
-            )
+            logger.info(f"Trace Single Matter: context={req.mode or 'SINGLE_CASE'}, case_id={rag_case_id}, route={route_result.intent.value}, retrieval=CASE_RAG, adapter=case_analysis_v1")
+            print(f"[TRACE] context={req.mode or 'SINGLE_CASE'} | case_id={rag_case_id} | route={route_result.intent.value} | retrieval=CASE_RAG | adapter=case_analysis_v1")
+            async with model_concurrency_lock:
+                case_analysis = await asyncio.to_thread(
+                    case_rag_pipeline.answer_case_question,
+                    question=req.content,
+                    case_id=rag_case_id,
+                    top_k=6,
+                    max_new_tokens=512
+                )
             answer_text = case_analysis.answer
             sources = case_analysis.case_sources + case_analysis.legal_sources
             rel = case_analysis.reliability
@@ -1140,8 +1409,8 @@ async def ai_chat(req: AIChatRequest):
             "role": "assistant",
             "timestamp": time.strftime("%I:%M %p"),
             "content": answer_text,
-            "query_type": "CASE_QUERY",
-            "route": "CASE_QUERY",
+            "query_type": route_result.intent.value,
+            "route": route_result.intent.value,
             "type": "case_analysis",
             "reliability": rel,
             "reliabilityLabel": rel_label,
@@ -1418,14 +1687,114 @@ async def ai_chat_stream(req: AIChatRequest):
             yield f"event: complete\ndata: {json.dumps(complete_payload)}\n\n"
             return
 
-        # Stream Route 3: CASE_QUERY or (Case Mode and not an explicit statutory, conversational, or out-of-scope query)
+        # Stream Route 2C: SYSTEM_INFO (Verified Architectural Context, Zero RAG)
+        if route_result.intent == QueryIntent.SYSTEM_INFO:
+            answer_text = generate_system_info_response(req.content)
+            words = answer_text.split(" ")
+            current_text = ""
+            for i, word in enumerate(words):
+                current_text += (word if i == 0 else " " + word)
+                token_payload = {"token": current_text}
+                yield f"event: token\ndata: {json.dumps(token_payload)}\n\n"
+                await asyncio.sleep(0.012)
+
+            complete_payload = {
+                "id": f"msg-{int(time.time() * 1000)}",
+                "role": "assistant",
+                "timestamp": time.strftime("%I:%M %p"),
+                "content": answer_text,
+                "query_type": "SYSTEM_INFO",
+                "route": "SYSTEM_INFO",
+                "type": "system_info",
+                "reliability": "supported",
+                "reliabilityLabel": "Verified System Architecture",
+                "sources": [],
+                "citations": [],
+                "requires_verification": False,
+                "confidence_status": "SYSTEM_SPECIFICATION",
+                "evidence_status": "VERIFIED_SYSTEM_CONTEXT",
+                "generation_time_sec": round(time.time() - t0, 3)
+            }
+            yield f"event: complete\ndata: {json.dumps(complete_payload)}\n\n"
+            return
+
+        # Stream Route 2D: TECHNICAL_AI (Base Qwen Conceptual Explanation, LoRA Disabled, Zero RAG)
+        if route_result.intent == QueryIntent.TECHNICAL_AI:
+            async with model_concurrency_lock:
+                answer_text = await asyncio.to_thread(
+                    generate_base_qwen_technical_response,
+                    pipeline=pipeline,
+                    message=req.content,
+                    history=req.history,
+                    max_new_tokens=256
+                )
+            words = answer_text.split(" ")
+            current_text = ""
+            for i, word in enumerate(words):
+                current_text += (word if i == 0 else " " + word)
+                token_payload = {"token": current_text}
+                yield f"event: token\ndata: {json.dumps(token_payload)}\n\n"
+                await asyncio.sleep(0.012)
+
+            complete_payload = {
+                "id": f"msg-{int(time.time() * 1000)}",
+                "role": "assistant",
+                "timestamp": time.strftime("%I:%M %p"),
+                "content": answer_text,
+                "query_type": "TECHNICAL_AI",
+                "route": "TECHNICAL_AI",
+                "type": "technical_ai",
+                "reliability": "supported",
+                "reliabilityLabel": "Base Qwen Technical Explanation",
+                "sources": [],
+                "citations": [],
+                "requires_verification": False,
+                "confidence_status": "BASE_QWEN_TECHNICAL",
+                "evidence_status": "PARAMETRIC_BASE_MODEL",
+                "generation_time_sec": round(time.time() - t0, 3)
+            }
+            yield f"event: complete\ndata: {json.dumps(complete_payload)}\n\n"
+            return
+
+        # Stream Route 2E: CASE_MANAGEMENT (Application DB cases table, Zero Case RAG)
+        if route_result.intent == QueryIntent.CASE_MANAGEMENT:
+            effective_case_id = req.caseId or (req.selectedCases[0] if (req.selectedCases and len(req.selectedCases) > 0) else None) or req.caseNumber
+            answer_text = generate_case_management_response(req.content, active_case_id=effective_case_id)
+            words = answer_text.split(" ")
+            current_text = ""
+            for i, word in enumerate(words):
+                current_text += (word if i == 0 else " " + word)
+                token_payload = {"token": current_text}
+                yield f"event: token\ndata: {json.dumps(token_payload)}\n\n"
+                await asyncio.sleep(0.012)
+
+            complete_payload = {
+                "id": f"msg-{int(time.time() * 1000)}",
+                "role": "assistant",
+                "timestamp": time.strftime("%I:%M %p"),
+                "content": answer_text,
+                "query_type": "CASE_MANAGEMENT",
+                "route": "CASE_MANAGEMENT",
+                "type": "case_management",
+                "reliability": "supported",
+                "reliabilityLabel": "Case Portfolio Management",
+                "sources": [],
+                "citations": [],
+                "requires_verification": False,
+                "confidence_status": "CASE_MANAGEMENT_DB",
+                "evidence_status": "APPLICATION_DATABASE",
+                "generation_time_sec": round(time.time() - t0, 3)
+            }
+            yield f"event: complete\ndata: {json.dumps(complete_payload)}\n\n"
+            return
+
+        # Stream Route 3: CASE_QUERY or HEARING_PREPARATION (Strictly semantic intent or explicit single-case inquiry)
         effective_case_id = req.caseId or (req.selectedCases[0] if (req.selectedCases and len(req.selectedCases) > 0) else None) or req.caseNumber
         cid, cnum = resolve_case_identifier(effective_case_id)
         rag_case_id = get_best_rag_case_id(case_rag_pipeline, cid, cnum) or effective_case_id
-        is_case_mode = (req.mode == "SINGLE_CASE" and (effective_case_id or rag_case_id)) or (req.selectedCases and len(req.selectedCases) > 0)
+        is_case_intent = route_result.intent in (QueryIntent.CASE_QUERY, QueryIntent.HEARING_PREPARATION)
 
-        if route_result.intent == QueryIntent.CASE_QUERY or (is_case_mode and route_result.intent not in (QueryIntent.LEGAL_QUERY, QueryIntent.CONVERSATIONAL, QueryIntent.OUT_OF_SCOPE, QueryIntent.GENERAL_NON_LEGAL, QueryIntent.AMBIGUOUS)):
-
+        if is_case_intent:
             if not rag_case_id:
                 answer_text = generate_case_guidance(None)
                 sources = []
@@ -1433,15 +1802,16 @@ async def ai_chat_stream(req: AIChatRequest):
                 rel_label = "Case Guidance"
                 conf_status = "CASE_GUIDANCE"
             elif case_rag_pipeline:
-                logger.info(f"Trace Single Matter: context={req.mode or 'SINGLE_CASE'}, case_id={rag_case_id}, route=CASE_QUERY, retrieval=CASE_RAG, adapter=case_analysis_v1")
-                print(f"[TRACE] context={req.mode or 'SINGLE_CASE'} | case_id={rag_case_id} | route=CASE_QUERY | retrieval=CASE_RAG | adapter=case_analysis_v1")
-                case_analysis = await asyncio.to_thread(
-                    case_rag_pipeline.answer_case_question,
-                    question=req.content,
-                    case_id=rag_case_id,
-                    top_k=6,
-                    max_new_tokens=512
-                )
+                logger.info(f"Trace Single Matter: context={req.mode or 'SINGLE_CASE'}, case_id={rag_case_id}, route={route_result.intent.value}, retrieval=CASE_RAG, adapter=case_analysis_v1")
+                print(f"[TRACE] context={req.mode or 'SINGLE_CASE'} | case_id={rag_case_id} | route={route_result.intent.value} | retrieval=CASE_RAG | adapter=case_analysis_v1")
+                async with model_concurrency_lock:
+                    case_analysis = await asyncio.to_thread(
+                        case_rag_pipeline.answer_case_question,
+                        question=req.content,
+                        case_id=rag_case_id,
+                        top_k=6,
+                        max_new_tokens=512
+                    )
                 answer_text = case_analysis.answer
                 sources = case_analysis.case_sources + case_analysis.legal_sources
                 rel = case_analysis.reliability
@@ -1470,8 +1840,8 @@ async def ai_chat_stream(req: AIChatRequest):
                 "role": "assistant",
                 "timestamp": time.strftime("%I:%M %p"),
                 "content": answer_text,
-                "query_type": "CASE_QUERY",
-                "route": "CASE_QUERY",
+                "query_type": route_result.intent.value,
+                "route": route_result.intent.value,
                 "type": "case_analysis",
                 "reliability": rel,
                 "reliabilityLabel": rel_label,
