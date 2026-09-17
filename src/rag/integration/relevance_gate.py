@@ -77,7 +77,7 @@ class StatutoryRelevanceGate:
 
             # Check Act domain compatibility
             act_compatible = True
-            if target_statute_code and target_statute_code in ("BNS", "BNSS", "BSA"):
+            if target_statute_code:
                 if chunk_act != target_statute_code:
                     act_compatible = False
 

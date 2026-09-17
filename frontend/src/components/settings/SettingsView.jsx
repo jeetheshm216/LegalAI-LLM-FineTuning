@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { 
   User, 
   Shield, 
+  ShieldCheck,
   Sun, 
   Eye, 
   Sparkles, 
@@ -12,9 +13,12 @@ import {
   Smartphone,
   CheckCircle2,
   XCircle,
-  Keyboard
+  Keyboard,
+  Info,
+  Laptop
 } from 'lucide-react';
 import { Button } from '../common/Button';
+import { PROTOTYPE_DISCLAIMER } from '../../services/verificationService';
 
 export const SettingsView = ({ 
   currentUser, 
@@ -23,7 +27,7 @@ export const SettingsView = ({
   onLogout,
   onUpdateUserSettings 
 }) => {
-  const [activeSection, setActiveSection] = useState('appearance'); // 'account' | 'security' | 'appearance' | 'accessibility' | 'ai'
+  const [activeSection, setActiveSection] = useState('appearance'); // 'account' | 'verification' | 'security' | 'appearance' | 'accessibility' | 'ai'
   const [fontSize, setFontSize] = useState('default');
   const [contrast, setContrast] = useState('default');
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -44,6 +48,7 @@ export const SettingsView = ({
 
   const sections = [
     { id: 'account', label: 'Account Profile', icon: User },
+    { id: 'verification', label: 'Professional Verification', icon: ShieldCheck },
     { id: 'security', label: 'Security & 2FA', icon: Shield },
     { id: 'appearance', label: 'Appearance', icon: Sun },
     { id: 'accessibility', label: 'Accessibility', icon: Eye },
@@ -217,6 +222,135 @@ export const SettingsView = ({
             </div>
           )}
 
+          {/* Section: Professional Verification */}
+          {activeSection === 'verification' && (
+            <div>
+              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-h2)', marginBottom: 'var(--space-xs)' }}>
+                Professional Advocate Verification
+              </h2>
+              <p style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-lg)' }}>
+                Statutory verification of legal licensure and bar credentials for privileged chambers access.
+              </p>
+
+              {/* Prototype Disclaimer */}
+              <div
+                style={{
+                  backgroundColor: 'var(--color-bg-surface-sunken)',
+                  border: '1px solid var(--color-border-subtle)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: 'var(--space-xs) var(--space-sm)',
+                  marginBottom: 'var(--space-md)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-xs)',
+                  fontSize: '11px',
+                  color: 'var(--color-text-secondary)'
+                }}
+              >
+                <Info size={14} color="var(--color-accent-500)" style={{ flexShrink: 0 }} />
+                <span>{PROTOTYPE_DISCLAIMER}</span>
+              </div>
+
+              {/* Status Overview Card */}
+              <div
+                style={{
+                  backgroundColor: 'var(--color-bg-surface-sunken)',
+                  border: '1px solid var(--color-border-subtle)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: 'var(--space-lg)',
+                  marginBottom: 'var(--space-xl)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
+                  <div
+                    style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '50%',
+                      backgroundColor: 'var(--color-success-wash)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <CheckCircle2 size={22} color="var(--color-success-text)" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                      Advocate Identity Verified
+                    </div>
+                    <div style={{ fontSize: 'var(--text-caption)', color: 'var(--color-success-text)' }}>
+                      Professional verification valid for chambers session
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+                  <div>
+                    <div style={{ fontSize: 'var(--text-label)', color: 'var(--color-text-secondary)', marginBottom: '2px' }}>
+                      State Bar Council
+                    </div>
+                    <div style={{ fontSize: 'var(--text-body)', fontWeight: 500 }}>
+                      {currentUser?.state_bar_council || 'Bar Council of Tamil Nadu & Puducherry'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: 'var(--text-label)', color: 'var(--color-text-secondary)', marginBottom: '2px' }}>
+                      Enrollment Number
+                    </div>
+                    <div style={{ fontSize: 'var(--text-body)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                      {(() => {
+                        const num = currentUser?.enrollment_number || currentUser?.barNumber || 'TN/1942/2018';
+                        const parts = num.split('/');
+                        if (parts.length === 3) {
+                          return `${parts[0]}/••••/${parts[2]}`;
+                        }
+                        return num.slice(0, 3) + '••••' + num.slice(-4);
+                      })()}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: 'var(--text-label)', color: 'var(--color-text-secondary)', marginBottom: '2px' }}>
+                      Verification Status
+                    </div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--color-success-text)', fontWeight: 600, fontSize: 'var(--text-caption)' }}>
+                      <Check size={14} /> Verified Advocate
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: 'var(--text-label)', color: 'var(--color-text-secondary)', marginBottom: '2px' }}>
+                      Mobile Verification
+                    </div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--color-success-text)', fontWeight: 500, fontSize: 'var(--text-caption)' }}>
+                      <Check size={14} /> Verified
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: 'var(--text-label)', color: 'var(--color-text-secondary)', marginBottom: '2px' }}>
+                      Chambers Email
+                    </div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--color-success-text)', fontWeight: 500, fontSize: 'var(--text-caption)' }}>
+                      <Check size={14} /> Verified ({currentUser?.email || 'e.vance@vance-legal.org'})
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: 'var(--text-label)', color: 'var(--color-text-secondary)', marginBottom: '2px' }}>
+                      Two-Factor Authentication
+                    </div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--color-success-text)', fontWeight: 500, fontSize: 'var(--text-caption)' }}>
+                      <Check size={14} /> Enabled
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Section: Security & 2FA */}
           {activeSection === 'security' && (
             <div>
@@ -256,6 +390,84 @@ export const SettingsView = ({
                 >
                   {twoFactorEnabled ? "Enabled (Configured)" : "Enable 2FA"}
                 </Button>
+              </div>
+
+              {/* Active Sessions UI (§21) */}
+              <div style={{ marginBottom: 'var(--space-xl)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-xs)' }}>
+                  <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-h3)', margin: 0 }}>
+                    Active Sessions
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => alert('Other remote sessions have been terminated. Current device remains active.')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--color-text-link)',
+                      fontSize: 'var(--text-caption)',
+                      cursor: 'pointer',
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    Sign out other sessions
+                  </button>
+                </div>
+                <p style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-sm)' }}>
+                  Devices currently authenticated to your chambers account.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: 'var(--space-sm) var(--space-md)',
+                      backgroundColor: 'var(--color-bg-surface-sunken)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--color-border-subtle)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+                      <Laptop size={18} color="var(--color-accent-500)" />
+                      <div>
+                        <div style={{ fontSize: 'var(--text-body)', fontWeight: 500 }}>Current Device</div>
+                        <div style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-secondary)' }}>
+                          Windows • Chrome Browser • Chennai, India
+                        </div>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 'var(--text-caption)', color: 'var(--color-success-text)', fontWeight: 600 }}>
+                      Active now
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: 'var(--space-sm) var(--space-md)',
+                      backgroundColor: 'var(--color-bg-surface-sunken)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--color-border-subtle)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+                      <Laptop size={18} color="var(--color-text-muted)" />
+                      <div>
+                        <div style={{ fontSize: 'var(--text-body)', fontWeight: 500 }}>Chambers Laptop</div>
+                        <div style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-secondary)' }}>
+                          MacBook Pro • Safari • New Delhi, India
+                        </div>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-muted)' }}>
+                      2 hours ago
+                    </span>
+                  </div>
+                </div>
               </div>
 
               {/* Login History Table (§16) */}

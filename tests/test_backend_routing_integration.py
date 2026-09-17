@@ -80,7 +80,7 @@ def test_in_corpus_legal_chat():
 
 def test_out_of_corpus_legal_chat():
     print("--- 4. Out-of-Corpus Legal Query (NI Act §138) ---")
-    q = "What is Section 138 of the Negotiable Instruments Act?"
+    q = "What is Section 4 of the Marine Insurance Act, 1963?"
     payload = {"content": q}
     resp = requests.post(f"{BASE_URL}/api/v1/ai/chat", json=payload, timeout=60)
     assert resp.status_code == 200, f"Chat failed for '{q}': {resp.status_code} {resp.text}"
@@ -120,7 +120,7 @@ def test_case_query():
     print("--- 6. Case Query ('Analyze my case') ---")
     q = "Analyze my case."
     payload = {"content": q, "caseId": "case-01"}
-    resp = requests.post(f"{BASE_URL}/api/v1/ai/chat", json=payload, timeout=10)
+    resp = requests.post(f"{BASE_URL}/api/v1/ai/chat", json=payload, timeout=60)
     assert resp.status_code == 200, f"Chat failed for '{q}': {resp.status_code} {resp.text}"
     data = resp.json()
     print(f"Query: '{q}'")

@@ -1,11 +1,47 @@
 export const INITIAL_EVENTS = [
   {
+    id: "evt-rem-01",
+    date: "2026-09-14",
+    time: "11:00 AM",
+    title: "Reminder: Sub-Registrar Certified Copies",
+    caseNumber: "2024-CV-0998",
+    eventType: "reminder",
+    court: "Sub-Registrar Office, Central",
+    location: "Archives Counter 4",
+    description: "Collect certified inspection extracts of testamentary records and registered codicil.",
+    priority: "normal"
+  },
+  {
+    id: "evt-rem-02",
+    date: "2026-09-15",
+    time: "04:30 PM",
+    title: "Statutory Deadline: Written Statement Filing",
+    caseNumber: "2024-CC-0120",
+    eventType: "reminder",
+    court: "Commercial Appellate Tribunal",
+    location: "E-Filing Portal / Registry Counter",
+    description: "Mandatory statutory timeline under Order VIII Rule 1 CPC for lodging defence pleadings.",
+    priority: "urgent"
+  },
+  {
+    id: "evt-rem-03",
+    date: "2026-09-16",
+    time: "06:00 PM",
+    title: "Pre-Hearing Chamber Brief: Sr. Counsel Vance",
+    caseNumber: "2024-CV-1187",
+    eventType: "reminder",
+    court: null,
+    location: "Chambers Library & Conference Suite",
+    description: "Final case conference on demurrage lien precedents and Admiralty jurisdiction citations.",
+    priority: "urgent"
+  },
+  {
     id: "evt-01",
     date: "2026-09-17",
     time: "10:30 AM",
     title: "Injunction Hearing — Martinez v. Coastal",
     caseNumber: "2024-CV-1187",
-    eventType: "hearing", // hearing, client_meeting, visitor, personal, reminder
+    eventType: "hearing",
     court: "High Court Commercial Bench IV",
     location: "Courtroom 14, 2nd Floor",
     description: "Final arguments on notice of motion for interim injunction against cargo liquidation.",
@@ -24,6 +60,18 @@ export const INITIAL_EVENTS = [
     priority: "normal"
   },
   {
+    id: "evt-rem-04",
+    date: "2026-09-19",
+    time: "05:00 PM",
+    title: "Limitation Reminder: Sec 138 NI Act Expiry",
+    caseNumber: "2024-CC-0120",
+    eventType: "reminder",
+    court: "Metropolitan Magistrate Court",
+    location: "Chambers Registry Desk",
+    description: "15-day statutory demand period expires. Draft Section 142 criminal complaint if dishonour unpaid.",
+    priority: "urgent"
+  },
+  {
     id: "evt-03",
     date: "2026-09-21",
     time: "11:00 AM",
@@ -36,6 +84,30 @@ export const INITIAL_EVENTS = [
     priority: "normal"
   },
   {
+    id: "evt-rem-05",
+    date: "2026-09-22",
+    time: "01:00 PM",
+    title: "Fee Deposit Reminder: Commercial Registry",
+    caseNumber: "2024-CV-1187",
+    eventType: "reminder",
+    court: "High Court Registry",
+    location: "Treasury Counter, Ground Floor",
+    description: "Remit required interim undertaking security deposit to judicial treasury account.",
+    priority: "normal"
+  },
+  {
+    id: "evt-rem-06",
+    date: "2026-09-23",
+    time: "03:00 PM",
+    title: "Reminder: Bail Surety Verification Papers",
+    caseNumber: "2024-CR-0442",
+    eventType: "reminder",
+    court: "Sessions Court Division I",
+    location: "Bail Scrutiny Desk, Hall 3",
+    description: "Verify local solvent surety solvency certificates and identity affidavits ahead of order.",
+    priority: "urgent"
+  },
+  {
     id: "evt-04",
     date: "2026-09-24",
     time: "11:00 AM",
@@ -45,7 +117,7 @@ export const INITIAL_EVENTS = [
     court: "Sessions Court Division I",
     location: "Courtroom 3, Sessions Hall",
     description: "Pronouncement of orders on regular bail petition and electronic admissibility objection.",
-    priority: "normal"
+    priority: "urgent"
   },
   {
     id: "evt-05",
@@ -60,6 +132,18 @@ export const INITIAL_EVENTS = [
     priority: "urgent"
   },
   {
+    id: "evt-rem-07",
+    date: "2026-09-26",
+    time: "12:00 PM",
+    title: "Client Intake: Original Bill of Lading",
+    caseNumber: "2024-CV-1187",
+    eventType: "reminder",
+    court: null,
+    location: "Chambers Reception Desk",
+    description: "Receive original negotiable bills of lading and marine charter agreement from client courier.",
+    priority: "normal"
+  },
+  {
     id: "evt-06",
     date: "2026-09-28",
     time: "01:00 PM",
@@ -70,6 +154,18 @@ export const INITIAL_EVENTS = [
     location: "High Court Library Hall",
     description: "Chambers attendance for annual law library committee resolution.",
     priority: "normal"
+  },
+  {
+    id: "evt-rem-08",
+    date: "2026-09-29",
+    time: "04:00 PM",
+    title: "Limitation Reminder: 30-Day Appeal Deadline",
+    caseNumber: "2024-CR-0442",
+    eventType: "reminder",
+    court: "High Court Criminal Appellate Division",
+    location: "Appellate Filing Desk",
+    description: "Final statutory date to prefer criminal appeal or revision against interlocutory findings under BNSS.",
+    priority: "urgent"
   },
   {
     id: "evt-07",

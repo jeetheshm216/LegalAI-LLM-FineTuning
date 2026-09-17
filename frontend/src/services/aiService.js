@@ -58,21 +58,70 @@ export const aiService = {
   /**
    * Primary streaming AI query execution connecting to backend SSE.
    */
-  sendMessageStream: ({ convId, content, onToken, onComplete }) => {
+  sendMessageStream: ({
+    convId,
+    content,
+    history,
+    mode,
+    caseId,
+    caseNumber,
+    selectedCases,
+    contextSettings,
+    onToken,
+    onComplete,
+    onError
+  }) => {
     const controller = new AbortController();
-    const activeConv = conversationsStore.find(c => c.id === convId);
+    let activeConv = conversationsStore.find(c => c.id === convId);
+
+    const prevHistory = history || (activeConv?.messages || []).map(m => ({
+      role: m.role,
+      content: m.content || '',
+      query_type: m.query_type || null
+    }));
+
+    const effectiveMode = mode || activeConv?.mode || "GENERAL";
+    const effectiveCaseId = caseId || activeConv?.caseId || null;
+    const effectiveCaseNumber = caseNumber || activeConv?.caseNumber || null;
+    const effectiveSelectedCases = selectedCases || activeConv?.selectedCases || (effectiveCaseId ? [effectiveCaseId] : []);
+    const effectiveContextSettings = contextSettings || activeConv?.contextSettings || null;
+
+    if (!activeConv) {
+      activeConv = {
+        id: convId,
+        title: "Active Inquiry",
+        mode: effectiveMode,
+        caseId: effectiveCaseId,
+        caseNumber: effectiveCaseNumber,
+        selectedCases: effectiveSelectedCases,
+        contextSettings: effectiveContextSettings,
+        updatedAt: "Just now",
+        messages: []
+      };
+      conversationsStore = [activeConv, ...conversationsStore];
+    } else {
+      activeConv.mode = effectiveMode;
+      activeConv.caseId = effectiveCaseId;
+      activeConv.caseNumber = effectiveCaseNumber;
+      activeConv.selectedCases = effectiveSelectedCases;
+      if (effectiveContextSettings) {
+        activeConv.contextSettings = effectiveContextSettings;
+      }
+    }
 
     const payload = {
       content,
       conversationId: convId,
-      mode: activeConv?.mode || "GENERAL",
-      caseId: activeConv?.caseId || null,
-      caseNumber: activeConv?.caseNumber || null,
-      selectedCases: activeConv?.selectedCases || [],
-      contextSettings: activeConv?.contextSettings || null
+      mode: effectiveMode,
+      caseId: effectiveCaseId,
+      caseNumber: effectiveCaseNumber,
+      selectedCases: effectiveSelectedCases,
+      contextSettings: effectiveContextSettings,
+      history: prevHistory
     };
 
     let accumulated = "";
+    let hasCompleted = false;
 
     apiClient.streamSSE({
       endpoint: '/api/v1/ai/chat/stream',
@@ -83,16 +132,18 @@ export const aiService = {
         onToken?.(tokenString);
       },
       onComplete: (aiMessage) => {
+        if (hasCompleted) return;
         hasCompleted = true;
         const finalMessage = {
-          id: aiMessage.id || `msg-${Date.now()}`,
+          id: aiMessage?.id || `msg-${Date.now()}`,
           role: "assistant",
-          timestamp: aiMessage.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          content: aiMessage.content || accumulated,
-          reliability: aiMessage.reliability || "supported",
-          reliabilityLabel: aiMessage.reliabilityLabel || "Supported by sources",
-          sources: aiMessage.sources || [],
-          citations: aiMessage.citations || []
+          timestamp: aiMessage?.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          content: aiMessage?.content || accumulated,
+          reliability: aiMessage?.reliability || "supported",
+          reliabilityLabel: aiMessage?.reliabilityLabel || "Supported by sources",
+          sources: aiMessage?.sources || [],
+          citations: aiMessage?.citations || [],
+          query_type: aiMessage?.query_type || null
         };
 
         // Persist message in conversation store
@@ -113,6 +164,9 @@ export const aiService = {
         if (hasCompleted) {
           return; // Already completed successfully; ignore trailing stream closure
         }
+        if (controller.signal.aborted) {
+          return; // User cancelled
+        }
         console.warn('SSE Stream encountered an issue, attempting direct REST fallback:', err.message);
 
         try {
@@ -128,7 +182,8 @@ export const aiService = {
               reliability: fallbackRes.reliability || "supported",
               reliabilityLabel: fallbackRes.reliabilityLabel || "Supported by sources",
               sources: fallbackRes.sources || [],
-              citations: fallbackRes.citations || []
+              citations: fallbackRes.citations || [],
+              query_type: fallbackRes.query_type || null
             };
 
             conversationsStore = conversationsStore.map(c => {
@@ -171,11 +226,19 @@ export const aiService = {
           return c;
         });
 
-        onComplete?.(fallbackMsg);
+        if (onError) {
+          onError(err);
+        } else {
+          onComplete?.(fallbackMsg);
+        }
       }
     });
 
-    return () => controller.abort();
+    return () => {
+      try {
+        controller.abort();
+      } catch (e) {}
+    };
   },
 
   /**

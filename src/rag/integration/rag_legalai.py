@@ -220,7 +220,7 @@ class LegalAIRAGPipeline:
 
         raw_candidates = self.retriever.retrieve(
             query=search_query,
-            act_filter=final_act_filter if final_act_filter in ("BNS", "BNSS", "BSA") else None,
+            act_filter=final_act_filter,
             section_filter=final_sec_filter,
             effective_date=effective_date,
             mode="hybrid",
@@ -234,7 +234,7 @@ class LegalAIRAGPipeline:
             query=question,
             candidates=raw_candidates,
             target_domain=domain_res.detected_domain,
-            target_statute_code=final_act_filter if final_act_filter in ("BNS", "BNSS", "BSA") else None,
+            target_statute_code=final_act_filter,
             target_section=final_sec_filter
         )
 

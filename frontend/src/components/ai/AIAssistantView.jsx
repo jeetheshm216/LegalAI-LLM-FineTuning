@@ -28,23 +28,62 @@ import { INITIAL_CONVERSATIONS } from '../../mock/mockAI';
 import { INITIAL_CASES } from '../../mock/mockCases';
 import { aiService } from '../../services/aiService';
 
+const createFreshConversation = (mode = 'GENERAL', lockedCase = null) => ({
+  id: `conv-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+  title: lockedCase ? `Analysis — ${lockedCase.caseNumber}` : "New Legal Inquiry",
+  mode: lockedCase ? 'SINGLE_CASE' : mode,
+  caseId: lockedCase ? (lockedCase.caseNumber || lockedCase.id) : null,
+  caseNumber: lockedCase ? lockedCase.caseNumber : null,
+  selectedCases: lockedCase ? [lockedCase.caseNumber || lockedCase.id] : [],
+  contextSettings: {
+    includeDocuments: true,
+    includeNotes: true,
+    includeTimeline: true,
+    includeHistory: true,
+    supportingCases: []
+  },
+  updatedAt: "Just now",
+  messages: []
+});
+
 export const AIAssistantView = ({ 
   initialMode = 'GENERAL', 
   lockedCase = null, 
   allCases = INITIAL_CASES 
 }) => {
-  const [conversations, setConversations] = useState(INITIAL_CONVERSATIONS);
-  const [activeConvId, setActiveConvId] = useState(() => {
-    if (lockedCase) {
-      const found = INITIAL_CONVERSATIONS.find(c => c.caseId === lockedCase.id);
-      return found ? found.id : INITIAL_CONVERSATIONS[0].id;
-    }
-    return INITIAL_CONVERSATIONS[0].id;
+  const [conversations, setConversations] = useState(() => {
+    const fresh = createFreshConversation(initialMode, lockedCase);
+    return [fresh, ...INITIAL_CONVERSATIONS];
   });
+  const [activeConvId, setActiveConvId] = useState(() => conversations[0]?.id || `conv-${Date.now()}`);
+
+  // Dynamic context update if lockedCase changes
+  useEffect(() => {
+    if (lockedCase) {
+      setConversations(prev => {
+        const targetId = lockedCase.caseNumber || lockedCase.id;
+        const existing = prev.find(c => c.caseId === targetId || c.caseNumber === lockedCase.caseNumber || c.caseId === lockedCase.id);
+        if (existing) {
+          setActiveConvId(existing.id);
+          return prev;
+        }
+        const fresh = createFreshConversation('SINGLE_CASE', lockedCase);
+        setActiveConvId(fresh.id);
+        return [fresh, ...prev];
+      });
+    }
+  }, [lockedCase?.id, lockedCase?.caseNumber]);
 
   const [inputQuery, setInputQuery] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationState, setGenerationState] = useState('IDLE'); // 'IDLE' | 'GENERATING' | 'COMPLETED' | 'CANCELLED' | 'ERROR'
+  const isGenerating = generationState === 'GENERATING';
   const [streamingText, setStreamingText] = useState('');
+  const [thinkingStageIndex, setThinkingStageIndex] = useState(0);
+  const [currentStages, setCurrentStages] = useState([
+    "Thinking…",
+    "Mulling this over…",
+    "Analyzing the matter…"
+  ]);
   const [expandedSources, setExpandedSources] = useState({});
   const [showPersonalization, setShowPersonalization] = useState(false);
   const [showCaseDropdown, setShowCaseDropdown] = useState(false);
@@ -69,16 +108,57 @@ export const AIAssistantView = ({
     scrollToBottom(false);
   }, [activeConv.messages, streamingText]);
 
+  // Stage rotation timer for thinking indicator
+  useEffect(() => {
+    if (generationState !== 'GENERATING') {
+      setThinkingStageIndex(0);
+      return;
+    }
+    const timer = setInterval(() => {
+      setThinkingStageIndex(prev => (prev < currentStages.length - 1 ? prev + 1 : prev));
+    }, 2200);
+    return () => clearInterval(timer);
+  }, [generationState, currentStages]);
+
+  const getThinkingStagesForQuery = (text, mode) => {
+    const t = (text || '').toLowerCase();
+    const isLegal = mode === 'GENERAL' && (
+      /\b(bns|bnss|bsa|ipc|crpc|iea|section|act|statute|offence|punishment|bail|cognizable|bailable|high court|supreme court)\b/i.test(t)
+    );
+    const isCase = mode === 'SINGLE_CASE' || mode === 'MULTI_CASE' || /\b(my case|our case|client|evidence|charge sheet|hearing|witness)\b/i.test(t);
+
+    if (isCase) {
+      return [
+        "Reviewing the case materials… 📁",
+        "Checking the available evidence… ⚖️",
+        "Preparing the case analysis…"
+      ];
+    }
+    if (isLegal) {
+      return [
+        "Understanding your question…",
+        "Reviewing relevant legal sources… ⚖️",
+        "Preparing a grounded response…"
+      ];
+    }
+    return [
+      "Thinking…",
+      "Analyzing the matter…"
+    ];
+  };
+
   // Context mode selection helper
   const handleModeChange = (newMode) => {
     setConversations(prev => prev.map(c => {
       if (c.id === activeConvId) {
+        const defaultCase = (allCases && allCases.length > 0) ? allCases[0] : null;
+        const defaultIdent = defaultCase ? (defaultCase.caseNumber || defaultCase.id) : null;
         return {
           ...c,
           mode: newMode,
-          caseId: newMode === 'SINGLE_CASE' ? (c.caseId || allCases[0].id) : null,
-          caseNumber: newMode === 'SINGLE_CASE' ? (c.caseNumber || allCases[0].caseNumber) : null,
-          selectedCases: newMode === 'MULTI_CASE' ? [allCases[0].id, allCases[1].id] : []
+          caseId: newMode === 'SINGLE_CASE' ? (c.caseId || defaultIdent) : null,
+          caseNumber: newMode === 'SINGLE_CASE' ? (c.caseNumber || defaultCase?.caseNumber) : null,
+          selectedCases: newMode === 'MULTI_CASE' ? (allCases.slice(0, 2).map(cs => cs.caseNumber || cs.id)) : (newMode === 'SINGLE_CASE' ? [c.caseId || defaultIdent] : [])
         };
       }
       return c;
@@ -87,12 +167,14 @@ export const AIAssistantView = ({
 
   // Case Switcher (§11: prominent selector, does not destroy conversation)
   const handleSwitchCase = (caseItem) => {
+    const chosenIdent = caseItem.caseNumber || caseItem.id;
     setConversations(prev => prev.map(c => {
       if (c.id === activeConvId) {
         return {
           ...c,
-          caseId: caseItem.id,
+          caseId: chosenIdent,
           caseNumber: caseItem.caseNumber,
+          selectedCases: [chosenIdent],
           mode: 'SINGLE_CASE'
         };
       }
@@ -162,6 +244,14 @@ export const AIAssistantView = ({
     const userText = inputQuery.trim();
     setInputQuery('');
 
+    const targetConvId = activeConvId;
+    const currentConv = conversations.find(c => c.id === targetConvId) || activeConv;
+    const prevHistory = (currentConv.messages || []).map(m => ({
+      role: m.role,
+      content: m.content || '',
+      query_type: m.query_type || null
+    }));
+
     const userMessage = {
       id: `msg-${Date.now()}`,
       role: 'user',
@@ -169,36 +259,87 @@ export const AIAssistantView = ({
       content: userText
     };
 
+    // Update conversation title if this is the first message
+    const shouldUpdateTitle = (currentConv.messages.length === 0);
+    const newTitle = shouldUpdateTitle 
+      ? (userText.slice(0, 32) + (userText.length > 32 ? '…' : ''))
+      : currentConv.title;
+
     // Add user message to conversation
     setConversations(prev => prev.map(c => {
-      if (c.id === activeConvId) {
+      if (c.id === targetConvId) {
         return {
           ...c,
+          title: newTitle,
+          updatedAt: 'Just now',
           messages: [...c.messages, userMessage]
         };
       }
       return c;
     }));
 
-    setIsGenerating(true);
+    // Setup thinking stages
+    const stages = getThinkingStagesForQuery(userText, currentConv.mode);
+    setCurrentStages(stages);
+    setThinkingStageIndex(0);
+
+    setGenerationState('GENERATING');
     setStreamingText('');
 
-    // Launch streaming token simulation
+    const effectiveMode = currentConv?.mode || (lockedCase ? 'SINGLE_CASE' : 'GENERAL');
+    const effectiveCaseId = currentConv?.caseId || (lockedCase ? (lockedCase.caseNumber || lockedCase.id) : null);
+    const effectiveCaseNumber = currentConv?.caseNumber || (lockedCase ? lockedCase.caseNumber : null);
+    const effectiveSelectedCases = (currentConv?.selectedCases && currentConv.selectedCases.length > 0)
+      ? currentConv.selectedCases
+      : (effectiveCaseId ? [effectiveCaseId] : []);
+
     const stopFn = aiService.sendMessageStream({
-      convId: activeConvId,
+      convId: targetConvId,
       content: userText,
+      history: prevHistory,
+      mode: effectiveMode,
+      caseId: effectiveCaseId,
+      caseNumber: effectiveCaseNumber,
+      selectedCases: effectiveSelectedCases,
+      contextSettings: currentConv?.contextSettings || null,
       onToken: (tokenString) => {
         setStreamingText(tokenString);
       },
       onComplete: (aiMessage) => {
+        stopGenerationRef.current = null;
         setStreamingText('');
-        setIsGenerating(false);
+        setGenerationState('COMPLETED');
+        setTimeout(() => setGenerationState('IDLE'), 50);
+
         setConversations(prev => prev.map(c => {
-          if (c.id === activeConvId) {
+          if (c.id === targetConvId) {
             return {
               ...c,
+              updatedAt: 'Just now',
               messages: [...c.messages, aiMessage]
             };
+          }
+          return c;
+        }));
+      },
+      onError: (err) => {
+        stopGenerationRef.current = null;
+        setStreamingText('');
+        setGenerationState('ERROR');
+        setTimeout(() => setGenerationState('IDLE'), 50);
+
+        const errorMsg = {
+          id: `msg-${Date.now()}`,
+          role: 'assistant',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          content: `### Service Advisory\n\nUnable to complete inquiry: ${err?.message || 'Connection error'}.`,
+          reliability: 'verify',
+          reliabilityLabel: 'Service Advisory',
+          sources: []
+        };
+        setConversations(prev => prev.map(c => {
+          if (c.id === targetConvId) {
+            return { ...c, messages: [...c.messages, errorMsg] };
           }
           return c;
         }));
@@ -210,17 +351,24 @@ export const AIAssistantView = ({
 
   const handleStopGeneration = () => {
     if (stopGenerationRef.current) {
-      stopGenerationRef.current();
+      try {
+        stopGenerationRef.current();
+      } catch (err) {
+        console.warn('Error during generation abort:', err);
+      }
+      stopGenerationRef.current = null;
     }
-    setIsGenerating(false);
+    setGenerationState('CANCELLED');
+    setTimeout(() => setGenerationState('IDLE'), 50);
+
     if (streamingText) {
       const interruptedMsg = {
         id: `msg-${Date.now()}`,
         role: 'assistant',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        content: streamingText + " [Generation halted by counsel]",
+        content: streamingText,
         reliability: 'limited',
-        reliabilityLabel: 'Partial response (interrupted)',
+        reliabilityLabel: 'Generation stopped by user',
         sources: []
       };
       setConversations(prev => prev.map(c => {
@@ -233,27 +381,22 @@ export const AIAssistantView = ({
     }
   };
 
-  // Create new conversation
+  // Create new clean conversation
   const handleNewConversation = () => {
-    const newConv = {
-      id: `conv-${Date.now()}`,
-      title: "New Legal Inquiry",
-      mode: "GENERAL",
-      caseId: null,
-      caseNumber: null,
-      selectedCases: [],
-      contextSettings: {
-        includeDocuments: true,
-        includeNotes: true,
-        includeTimeline: true,
-        includeHistory: true,
-        supportingCases: []
-      },
-      updatedAt: "Just now",
-      messages: []
-    };
-    setConversations([newConv, ...conversations]);
-    setActiveConvId(newConv.id);
+    if (stopGenerationRef.current) {
+      try {
+        stopGenerationRef.current();
+      } catch (err) {}
+      stopGenerationRef.current = null;
+    }
+    setGenerationState('IDLE');
+    setStreamingText('');
+    setInputQuery('');
+    setThinkingStageIndex(0);
+
+    const freshConv = createFreshConversation('GENERAL', null);
+    setConversations(prev => [freshConv, ...prev]);
+    setActiveConvId(freshConv.id);
   };
 
   // Bridge from Selected-text popup to main chat (§15.7)
@@ -700,11 +843,11 @@ export const AIAssistantView = ({
           }}
         >
           {activeConv.messages.length === 0 && (
-            <div style={{ margin: 'auto', textAlign: 'center', maxWidth: '420px', color: 'var(--color-text-secondary)' }}>
+            <div style={{ margin: 'auto', textAlign: 'center', maxWidth: '560px', color: 'var(--color-text-secondary)', padding: 'var(--space-md) 0' }}>
               <div
                 style={{
-                  width: '36px',
-                  height: '36px',
+                  width: '40px',
+                  height: '40px',
                   borderRadius: '50%',
                   backgroundColor: 'var(--color-ai-500)',
                   display: 'flex',
@@ -714,14 +857,64 @@ export const AIAssistantView = ({
                   margin: '0 auto var(--space-sm) auto'
                 }}
               >
-                <Sparkles size={18} />
+                <Sparkles size={20} />
               </div>
-              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-h3)', color: 'var(--color-text-primary)', marginBottom: '4px' }}>
+              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-h3)', color: 'var(--color-text-primary)', marginBottom: '6px' }}>
                 Legal AI Consultation Ready
               </h3>
-              <p style={{ fontSize: 'var(--text-caption)', lineHeight: 1.5 }}>
-                Submit queries regarding statutory interpretations (BNS/BNSS/BSA), contractual liabilities, or evidentiary rules.
+              <p style={{ fontSize: 'var(--text-caption)', lineHeight: 1.5, marginBottom: 'var(--space-lg)' }}>
+                Professional intelligence for lawyers: statutory interpretations (BNS/BNSS/BSA), case analysis, evidence evaluation, and hearing preparation.
               </p>
+
+              <div style={{ textAlign: 'left', marginBottom: '8px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
+                  What can I help with?
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', textAlign: 'left' }}>
+                {[
+                  { icon: '🔎', title: 'Research a legal provision', query: 'What does BNS Section 103 provide?' },
+                  { icon: '📁', title: 'Analyze a case', query: 'Summarize this case and outline the key facts.' },
+                  { icon: '📄', title: 'Review a document', query: 'What documents or evidence are missing in my case?' },
+                  { icon: '⚖️', title: 'Evaluate evidence', query: 'Analyze the evidence and check for contradictions in witness statements.' },
+                  { icon: '📝', title: 'Draft a legal document', query: 'How should a legal notice be structured?' },
+                  { icon: '📅', title: 'Prepare for a hearing', query: 'Prepare me for the upcoming hearing and outline key arguments.' },
+                ].map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setInputQuery(item.query);
+                    }}
+                    style={{
+                      padding: '10px 12px',
+                      backgroundColor: 'var(--color-bg-surface)',
+                      border: '1px solid var(--color-border-subtle)',
+                      borderRadius: 'var(--radius-md)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      textAlign: 'left'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--color-ai-300)';
+                      e.currentTarget.style.backgroundColor = 'var(--color-ai-50)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--color-border-subtle)';
+                      e.currentTarget.style.backgroundColor = 'var(--color-bg-surface)';
+                    }}
+                  >
+                    <span style={{ fontSize: '16px' }}>{item.icon}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                      {item.title}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -781,7 +974,50 @@ export const AIAssistantView = ({
             );
           })}
 
-          {/* Active Streaming Token Render with LegalAnswerRenderer */}
+          {/* Thinking / Generation Stage Indicator before tokens arrive */}
+          {isGenerating && !streamingText && (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignSelf: 'flex-start',
+                maxWidth: '85%',
+                width: '100%',
+                animation: 'fadeIn 0.2s ease-in-out'
+              }}
+            >
+              <div
+                style={{
+                  backgroundColor: 'var(--color-bg-surface)',
+                  border: '1px solid var(--color-ai-border)',
+                  borderRadius: 'var(--radius-chat-bubble-ai)',
+                  padding: '12px 18px',
+                  boxShadow: 'var(--elevation-1)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  width: 'fit-content'
+                }}
+              >
+                <div
+                  style={{
+                    width: '14px',
+                    height: '14px',
+                    borderRadius: '50%',
+                    border: '2px solid var(--color-ai-200)',
+                    borderTopColor: 'var(--color-ai-600)',
+                    animation: 'spin 0.9s linear infinite',
+                    flexShrink: 0
+                  }}
+                />
+                <span style={{ fontSize: '13px', color: 'var(--color-ink-700)', fontWeight: 500, fontFamily: 'var(--font-sans)' }}>
+                  {currentStages[thinkingStageIndex] || currentStages[0]}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Active Streaming Token Render with LegalAnswerRenderer and stage header */}
           {isGenerating && streamingText && (
             <div
               style={{
@@ -801,6 +1037,10 @@ export const AIAssistantView = ({
                   boxShadow: 'var(--elevation-1)'
                 }}
               >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px', opacity: 0.85, fontSize: '11px', color: 'var(--color-ai-600)', fontWeight: 500 }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', border: '1.5px solid var(--color-ai-300)', borderTopColor: 'var(--color-ai-600)', animation: 'spin 0.9s linear infinite', flexShrink: 0 }} />
+                  <span>{currentStages[thinkingStageIndex] || "Preparing grounded response…"}</span>
+                </div>
                 <LegalAnswerRenderer
                   message={{
                     id: 'streaming-active',
@@ -911,6 +1151,10 @@ export const AIAssistantView = ({
       <style>{`
         @keyframes blink {
           50% { opacity: 0; }
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
         @media (max-width: 800px) {
           .ai-workspace-container {

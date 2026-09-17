@@ -7,9 +7,25 @@
  * and Server-Sent Events (SSE) streaming.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL !== undefined 
-  ? import.meta.env.VITE_API_BASE_URL 
-  : '';
+function getApiBaseUrl() {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (!envUrl || envUrl.trim() === '') {
+    return '';
+  }
+  // If envUrl points to localhost/127.0.0.1, but client browser is accessing via a LAN IP or domain
+  // (e.g. 192.168.x.x, domain.com), do NOT route to client's own localhost. Route through relative path ('')
+  // which uses Vite's proxy directly to the backend.
+  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+    const isLocalEnv = envUrl.includes('localhost') || envUrl.includes('127.0.0.1');
+    const isRemoteClient = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    if (isLocalEnv && isRemoteClient) {
+      return '';
+    }
+  }
+  return envUrl.replace(/\/+$/, '');
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 class ApiError extends Error {
   constructor(message, status, data = null) {
@@ -29,7 +45,7 @@ function getAuthToken() {
 }
 
 async function request(endpoint, options = {}) {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = `${getApiBaseUrl()}${endpoint}`;
   const headers = {
     Accept: 'application/json',
     ...(options.headers || {})
@@ -112,7 +128,7 @@ export const apiClient = {
    * Connects to a Server-Sent Events (SSE) streaming endpoint using native fetch.
    */
   streamSSE: async ({ endpoint, body, onToken, onComplete, onError, signal }) => {
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = `${getApiBaseUrl()}${endpoint}`;
     const token = getAuthToken();
     const headers = {
       'Content-Type': 'application/json',

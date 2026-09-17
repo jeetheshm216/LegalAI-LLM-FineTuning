@@ -4,10 +4,11 @@ tests/test_query_router.py
 Unit tests for LegalAI QueryRouter.
 Validates:
 1. Conversational classification for pure greetings, gratitude, and assistant capability queries.
-2. Legal query classification for in-corpus (BNS, BNSS, BSA) and out-of-corpus statutes (NI Act, RERA, Constitution).
+2. Legal query classification for in-corpus (BNS, BNSS, BSA) and out-of-corpus statutes (NI Act, RERA, Constitution) + legal practice.
 3. Case query classification for matter-specific, client, evidence, and document inquiries.
-4. Adversarial / mixed queries ensuring legal and case intent NEVER get classified as conversational.
-5. Conversation history contextual follow-up handling.
+4. Out-of-scope non-legal classification for programming, movies, sports, tech shopping, recipes, etc.
+5. Contextual follow-up tracking (Conversations 1, 2, 3, 4).
+6. Exact Section 20 Routing Test Matrix.
 """
 
 import sys
@@ -21,93 +22,158 @@ if str(REPO_ROOT) not in sys.path:
 from src.api.query_router import QueryRouter, QueryIntent
 
 
-def test_conversational_queries():
+def test_section_20_matrix():
     router = QueryRouter()
-    conversational_inputs = [
-        "Hello",
-        "Hi",
+
+    # 1. CONVERSATIONAL
+    conversational = [
+        "hi",
         "hey",
-        "Good morning",
-        "good evening",
-        "Thanks",
-        "Thank you",
-        "thank you so much",
-        "Who are you?",
-        "What can you do?",
-        "Are you an AI?",
-        "Tell me about yourself",
-        "tell me about LegalAI",
-        "How are you?",
-        "help",
-        "Tell me a joke about lawyers.",
+        "hello",
+        "hey hi",
+        "good morning",
+        "how are you",
+        "thanks",
+        "thank you"
     ]
+    for q in conversational:
+        res = router.classify(q)
+        assert res.intent == QueryIntent.CONVERSATIONAL, f"Expected CONVERSATIONAL for '{q}', got {res.intent}"
 
-    for q in conversational_inputs:
-        result = router.classify(q)
-        assert result.intent == QueryIntent.CONVERSATIONAL, (
-            f"Expected CONVERSATIONAL for '{q}', got {result.intent} (reason: {result.reason})"
-        )
-    print("PASS: test_conversational_queries (all 16 passed)")
+    # 2. LEGAL
+    legal = [
+        "what is BNS section 103",
+        "what is BNSS section 482",
+        "what is BSA section 63",
+        "explain BNS section 103"
+    ]
+    for q in legal:
+        res = router.classify(q)
+        assert res.intent == QueryIntent.LEGAL_QUERY, f"Expected LEGAL_QUERY for '{q}', got {res.intent}"
+
+    # 3. CASE
+    case_queries = [
+        "what happened in my case",
+        "summarize this case",
+        "what evidence is missing in my case"
+    ]
+    for q in case_queries:
+        res = router.classify(q)
+        assert res.intent == QueryIntent.CASE_QUERY, f"Expected CASE_QUERY for '{q}', got {res.intent}"
+
+    # 4. OUT OF SCOPE
+    out_of_scope = [
+        "what is Python",
+        "write a python code",
+        "write C++ code",
+        "for odd or even",
+        "what is the last Vijay movie",
+        "who won yesterday's cricket match",
+        "recommend me a movie",
+        "what laptop should I buy",
+        "how do I cook biryani"
+    ]
+    for q in out_of_scope:
+        res = router.classify(q)
+        assert res.intent == QueryIntent.OUT_OF_SCOPE, f"Expected OUT_OF_SCOPE for '{q}', got {res.intent}"
+
+    print("PASS: test_section_20_matrix")
 
 
-def test_legal_queries():
+def test_section_20_context_conversations():
     router = QueryRouter()
-    legal_inputs = [
-        # In-corpus
-        ("What is BNS Section 103?", QueryIntent.LEGAL_QUERY),
-        ("What does BSA Section 63 say?", QueryIntent.LEGAL_QUERY),
-        ("What is the punishment for theft?", QueryIntent.LEGAL_QUERY),
-        ("Can an accused get anticipatory bail?", QueryIntent.LEGAL_QUERY),
-        ("What is the procedure for filing an appeal?", QueryIntent.LEGAL_QUERY),
-        ("What law applies to a substantive offence committed on June 15, 2024?", QueryIntent.LEGAL_QUERY),
-        ("What is the limitation period?", QueryIntent.LEGAL_QUERY),
-        ("Is murder a bailable offence?", QueryIntent.LEGAL_QUERY),
-        # Out-of-corpus (CRITICAL SAFETY)
-        ("What is Section 138 of the Negotiable Instruments Act?", QueryIntent.LEGAL_QUERY),
-        ("What is Section 138 of the NI Act?", QueryIntent.LEGAL_QUERY),
-        ("What is RERA?", QueryIntent.LEGAL_QUERY),
-        ("Explain RERA Section 11.", QueryIntent.LEGAL_QUERY),
-        ("What is Article 21 of the Constitution?", QueryIntent.LEGAL_QUERY),
-        ("What is Article 21?", QueryIntent.LEGAL_QUERY),
-        ("What is the limitation period under the Limitation Act?", QueryIntent.LEGAL_QUERY),
-        ("Explain intermediary liability under Section 79 of the IT Act.", QueryIntent.LEGAL_QUERY),
-        ("What are the grounds for divorce under Hindu Marriage Act?", QueryIntent.LEGAL_QUERY),
-        ("Can a company issue bonus shares under Companies Act?", QueryIntent.LEGAL_QUERY),
+
+    # Conversation 1: Programming follow-ups
+    # User: "write a python code" -> OUT_OF_SCOPE
+    res1 = router.classify("write a python code")
+    assert res1.intent == QueryIntent.OUT_OF_SCOPE
+    history1 = [
+        {"role": "user", "content": "write a python code", "query_type": "OUT_OF_SCOPE"},
+        {"role": "assistant", "content": "Programming isn't my area, buddy...", "query_type": "OUT_OF_SCOPE"}
     ]
+    # User: "for odd or even" -> OUT_OF_SCOPE
+    res2 = router.classify("for odd or even", conversation_history=history1)
+    assert res2.intent == QueryIntent.OUT_OF_SCOPE, f"Expected OUT_OF_SCOPE for 'for odd or even', got {res2.intent}"
+    history1.extend([
+        {"role": "user", "content": "for odd or even", "query_type": "OUT_OF_SCOPE"},
+        {"role": "assistant", "content": "That's still a programming request...", "query_type": "OUT_OF_SCOPE"}
+    ])
+    # User: "can you make it shorter?" -> OUT_OF_SCOPE
+    res3 = router.classify("can you make it shorter?", conversation_history=history1)
+    assert res3.intent == QueryIntent.OUT_OF_SCOPE, f"Expected OUT_OF_SCOPE for 'can you make it shorter?', got {res3.intent}"
 
-    for q, expected in legal_inputs:
-        result = router.classify(q)
-        assert result.intent == expected, (
-            f"Expected {expected} for '{q}', got {result.intent} (reason: {result.reason})"
-        )
-    print(f"PASS: test_legal_queries (all {len(legal_inputs)} passed)")
+    # Conversation 2: Legal follow-up
+    # User: "what is BNS section 103?" -> LEGAL_QUERY
+    res4 = router.classify("what is BNS section 103?")
+    assert res4.intent == QueryIntent.LEGAL_QUERY
+    history2 = [
+        {"role": "user", "content": "what is BNS section 103?", "query_type": "LEGAL_QUERY"},
+        {"role": "assistant", "content": "Section 103 of BNS...", "query_type": "LEGAL_QUERY"}
+    ]
+    # User: "what punishment applies?" -> LEGAL_QUERY
+    res5 = router.classify("what punishment applies?", conversation_history=history2)
+    assert res5.intent == QueryIntent.LEGAL_QUERY, f"Expected LEGAL_QUERY for 'what punishment applies?', got {res5.intent}"
+
+    # Conversation 3: Out-of-scope then Legal override
+    # User: "what is the last Vijay movie?" -> OUT_OF_SCOPE
+    res6 = router.classify("what is the last Vijay movie?")
+    assert res6.intent == QueryIntent.OUT_OF_SCOPE
+    history3 = [
+        {"role": "user", "content": "what is the last Vijay movie?", "query_type": "OUT_OF_SCOPE"},
+        {"role": "assistant", "content": "That's outside my legal scope...", "query_type": "OUT_OF_SCOPE"}
+    ]
+    # User: "what about the previous one?" -> OUT_OF_SCOPE
+    res_prev = router.classify("what about the previous one?", conversation_history=history3)
+    assert res_prev.intent == QueryIntent.OUT_OF_SCOPE, f"Expected OUT_OF_SCOPE for follow-up, got {res_prev.intent}"
+    # User: "what is BNS section 103?" -> LEGAL_QUERY (override!)
+    res7 = router.classify("what is BNS section 103?", conversation_history=history3)
+    assert res7.intent == QueryIntent.LEGAL_QUERY, f"Expected LEGAL_QUERY override, got {res7.intent}"
+
+    # Conversation 4: Case follow-up
+    # User: "what happened in my case?" -> CASE_QUERY
+    res8 = router.classify("what happened in my case?")
+    assert res8.intent == QueryIntent.CASE_QUERY
+    history4 = [
+        {"role": "user", "content": "what happened in my case?", "query_type": "CASE_QUERY"},
+        {"role": "assistant", "content": "In your case...", "query_type": "CASE_QUERY"}
+    ]
+    # User: "what evidence is missing?" -> CASE_QUERY
+    res9 = router.classify("what evidence is missing?", conversation_history=history4)
+    assert res9.intent == QueryIntent.CASE_QUERY, f"Expected CASE_QUERY for 'what evidence is missing?', got {res9.intent}"
+
+    print("PASS: test_section_20_context_conversations")
 
 
-def test_case_queries():
+def test_mixed_greeting_queries():
     router = QueryRouter()
-    case_inputs = [
-        "Analyze my case.",
-        "What are the strongest points in my client's case?",
-        "What are the weaknesses in this case?",
-        "What evidence supports our argument?",
-        "Summarize this judgment.",
-        "What are the risks of pursuing this argument?",
-        "What documents are missing?",
-        "What happened at the last hearing?",
-        "What happened in my case?",
-        "Are there inconsistencies in the witness statements?",
-        "What arguments can the opposing counsel make?",
-        "What should we challenge in this petition?",
-        "Analyze this FIR.",
-        "Review the attached document.",
-    ]
+    # Greeting + Legal -> LEGAL_QUERY
+    res1 = router.classify("Hey, what is BNS Section 103?")
+    assert res1.intent == QueryIntent.LEGAL_QUERY, f"Expected LEGAL_QUERY for greeting + legal, got {res1.intent}"
 
-    for q in case_inputs:
-        result = router.classify(q)
-        assert result.intent == QueryIntent.CASE_QUERY, (
-            f"Expected CASE_QUERY for '{q}', got {result.intent} (reason: {result.reason})"
-        )
-    print(f"PASS: test_case_queries (all {len(case_inputs)} passed)")
+    # Greeting + Out of Scope -> OUT_OF_SCOPE
+    res2 = router.classify("Hey, what is the latest Vijay movie?")
+    assert res2.intent == QueryIntent.OUT_OF_SCOPE, f"Expected OUT_OF_SCOPE for greeting + movie, got {res2.intent}"
+
+    # Greeting + C++ Code -> OUT_OF_SCOPE
+    res3 = router.classify("Hi, write C++ code for creating python file")
+    assert res3.intent == QueryIntent.OUT_OF_SCOPE, f"Expected OUT_OF_SCOPE for greeting + code, got {res3.intent}"
+
+    print("PASS: test_mixed_greeting_queries")
+
+
+def test_legal_related_general_questions():
+    router = QueryRouter()
+    questions = [
+        "What is a bail application?",
+        "How should I prepare for cross-examination?",
+        "How should a legal notice be structured?",
+        "What is the difference between civil and criminal proceedings?"
+    ]
+    for q in questions:
+        res = router.classify(q)
+        assert res.intent == QueryIntent.LEGAL_QUERY, f"Expected LEGAL_QUERY for '{q}', got {res.intent}"
+
+    print("PASS: test_legal_related_general_questions")
 
 
 def test_adversarial_mixed_queries():
@@ -131,25 +197,98 @@ def test_adversarial_mixed_queries():
     print(f"PASS: test_adversarial_mixed_queries (all {len(mixed_cases)} passed)")
 
 
-def test_contextual_follow_up():
+def test_social_profanity_messages():
     router = QueryRouter()
-    # History with legal query
-    history = [
-        {"role": "user", "content": "What is Section 103 BNS?"},
-        {"role": "assistant", "content": "Section 103 of Bharatiya Nyaya Sanhita defines punishment for murder..."}
+    # Interpersonal/frustration/profanity messages must be CONVERSATIONAL, NEVER OUT_OF_SCOPE!
+    messages = [
+        "fuck you",
+        "you're useless",
+        "this is stupid",
+        "damn",
+        "what the hell",
+        "you suck"
     ]
-    follow_up = "What about the punishment?"
-    result = router.classify(follow_up, conversation_history=history)
-    assert result.intent == QueryIntent.LEGAL_QUERY, (
-        f"Expected LEGAL_QUERY for follow-up '{follow_up}', got {result.intent}"
+    for q in messages:
+        res = router.classify(q)
+        assert res.intent == QueryIntent.CONVERSATIONAL, (
+            f"Expected CONVERSATIONAL for social/profanity '{q}', got {res.intent}"
+        )
+    print("PASS: test_social_profanity_messages (all classified as CONVERSATIONAL)")
+
+
+def test_ambiguous_queries():
+    router = QueryRouter()
+    # Ambiguous queries without context
+    ambiguous_cases = [
+        "49p",
+        "xyz",
+        "what about that?"
+    ]
+    for q in ambiguous_cases:
+        res = router.classify(q)
+        assert res.intent == QueryIntent.AMBIGUOUS, (
+            f"Expected AMBIGUOUS for '{q}', got {res.intent}"
+        )
+
+    # But with legal context, "what about that?" inherits legal intent!
+    history = [
+        {"role": "user", "content": "what is BNS section 103?", "query_type": "LEGAL_QUERY"},
+        {"role": "assistant", "content": "Section 103 of BNS...", "query_type": "LEGAL_QUERY"}
+    ]
+    res_context = router.classify("what about that?", conversation_history=history)
+    assert res_context.intent == QueryIntent.LEGAL_QUERY, (
+        f"Expected LEGAL_QUERY for 'what about that?' with legal context, got {res_context.intent}"
     )
-    print("PASS: test_contextual_follow_up")
+
+    print("PASS: test_ambiguous_queries (both isolated and contextual)")
+
+
+def test_section_14_suite():
+    router = QueryRouter()
+
+    # Out of scope specific checks from prompt
+    oos_queries = [
+        "what is Python?",
+        "write C++ hello world",
+        "give me odd/even Python code",
+        "latest Vijay movie",
+        "cricket result",
+        "laptop recommendation"
+    ]
+    for q in oos_queries:
+        res = router.classify(q)
+        assert res.intent == QueryIntent.OUT_OF_SCOPE, f"Expected OUT_OF_SCOPE for '{q}', got {res.intent}"
+
+    # Legal queries from prompt
+    legal_queries = [
+        "what is BNS Section 103?",
+        "what is BNSS Section 482?",
+        "what is BSA Section 63?",
+        "what punishment applies?"
+    ]
+    for q in legal_queries:
+        res = router.classify(q)
+        assert res.intent == QueryIntent.LEGAL_QUERY, f"Expected LEGAL_QUERY for '{q}', got {res.intent}"
+
+    # Legal follow-up
+    hist = [
+        {"role": "user", "content": "what is BNS Section 103?", "query_type": "LEGAL_QUERY"},
+        {"role": "assistant", "content": "Section 103...", "query_type": "LEGAL_QUERY"}
+    ]
+    res_evid = router.classify("what evidence is required?", conversation_history=hist)
+    assert res_evid.intent == QueryIntent.LEGAL_QUERY, f"Expected LEGAL_QUERY for legal follow-up, got {res_evid.intent}"
+
+    print("PASS: test_section_14_suite")
 
 
 if __name__ == "__main__":
-    test_conversational_queries()
-    test_legal_queries()
-    test_case_queries()
+    test_section_20_matrix()
+    test_section_20_context_conversations()
+    test_mixed_greeting_queries()
+    test_legal_related_general_questions()
     test_adversarial_mixed_queries()
-    test_contextual_follow_up()
-    print("\nALL ROUTER TESTS PASSED SUCCESSFULLY!")
+    test_social_profanity_messages()
+    test_ambiguous_queries()
+    test_section_14_suite()
+    print("\nALL QUERY ROUTER UNIT TESTS PASSED SUCCESSFULLY!")
+

@@ -11,20 +11,27 @@ import os
 import sys
 import time
 import json
+import re
+import random
 import sqlite3
 import shutil
 import asyncio
+import logging
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from contextlib import asynccontextmanager
+
+logger = logging.getLogger("legalai.server")
 
 # Ensure repository root is on sys.path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-# Enforce Physical GPU 2 before torch/cuda initialization
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+# Enforce GPU (defaults to 0 for intact 178GB B200)
+if "CUDA_VISIBLE_DEVICES" not in os.environ:
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
 
 import torch
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Query, status
@@ -36,10 +43,14 @@ from pydantic import BaseModel, Field
 from src.rag.integration.rag_legalai import LegalAIRAGPipeline
 from src.api.query_router import QueryRouter, QueryIntent, get_query_router
 from src.case_rag import CaseRAGPipeline, CaseEmbedder
+from src.legal_knowledge.retrieval.pipeline import GeneralIndianLegalKnowledgePipeline
+from src.legal_knowledge.integration.router_bridge import IndianLegalRouterBridge
 
-# Global singleton RAG pipeline & Case RAG pipeline
+# Global singleton RAG pipeline & Case RAG pipeline & General Indian Legal Knowledge
 pipeline: Optional[LegalAIRAGPipeline] = None
 case_rag_pipeline: Optional[CaseRAGPipeline] = None
+indian_knowledge_pipeline: Optional[GeneralIndianLegalKnowledgePipeline] = None
+indian_knowledge_bridge: Optional[IndianLegalRouterBridge] = None
 
 # SQLite database for Cases and Documents metadata
 APP_DB_PATH = REPO_ROOT / "data" / "legalai_app.db"
@@ -199,6 +210,20 @@ async def lifespan(app: FastAPI):
     )
     print("CaseRAGPipeline ready for document ingestion and case analysis.\n")
 
+    # Initialize General Indian Legal Knowledge Pipeline & Scope Bridge
+    global indian_knowledge_pipeline, indian_knowledge_bridge
+    print("Initializing General Indian Legal Knowledge Pipeline...")
+    indian_knowledge_pipeline = GeneralIndianLegalKnowledgePipeline(
+        db_path=str(REPO_ROOT / "data" / "legalai_indian_legal_knowledge.db")
+    )
+    if pipeline:
+        indian_knowledge_pipeline.set_llm_pipeline(pipeline)
+        print("Connected LegalAIRAGPipeline (Qwen + LegalAI V2) to GeneralIndianLegalKnowledgePipeline.")
+    indian_knowledge_bridge = IndianLegalRouterBridge(
+        pipeline=indian_knowledge_pipeline
+    )
+    print("GeneralIndianLegalKnowledgePipeline ready.\n")
+
     yield
 
     print("Shutting down LegalAI API service...")
@@ -306,34 +331,232 @@ def format_sources(retrieved_sources: list) -> list:
 
 
 # -------------------------------------------------------------
-# Conversational Prompt & Single-Model Generation Helper
+# Conversational & General System Prompts & Single-Model Generation
 # -------------------------------------------------------------
-CONVERSATIONAL_SYSTEM_PROMPT = """You are LegalAI, an advanced AI assistant designed specifically for advocates and legal professionals.
+LEGALAI_SYSTEM_PROMPT = """You are LegalAI, a professional AI assistant designed primarily for lawyers.
 
-You converse naturally, professionally, and courteously. You can introduce yourself, explain your capabilities, and assist with general inquiries.
+Your supported scope includes legal research, legal analysis, case analysis, legal documents, evidence evaluation, hearing preparation, legal drafting, and related legal workflows.
 
-IMPORTANT OPERATIONAL PRINCIPLES:
-1. IDENTITY & CAPABILITIES:
-   You are LegalAI, created to assist legal professionals with statutory research, criminal procedure, evidence evaluation, and case matter intelligence under Indian law.
-2. STATUTORY GROUNDING BOUNDARY:
-   When the user asks for legal facts, statutes, sections, current law, or authoritative legal verification, the application routes the request through the authoritative legal retrieval pipeline (Legal RAG).
-   Do not claim that you verified a legal proposition unless authoritative sources were actually provided by the application.
-3. CONVERSATIONAL DEMEANOR:
-   Keep conversational greetings, assistance offers, and identity answers concise, warm, articulate, and ready to assist with legal research or case analysis."""
+You may engage naturally in basic greetings, casual conversation, and respond calmly and professionally to emotional messages or frustration without being defensive.
+
+For requests unrelated to legal work, do not provide the requested answer. Politely explain that the request is outside your legal scope and redirect the user toward supported legal capabilities.
+
+When a user query or phrase is unclear or ambiguous, ask for clarification politely rather than guessing or hallucinating.
+
+Never invent legal facts, statutes, sections, citations, authorities, or case facts."""
+
+
+CONVERSATIONAL_SYSTEM_PROMPT = LEGALAI_SYSTEM_PROMPT
+
+ABUSIVE_RESPONSE = (
+    "I’m here to help. 🙂 If something went wrong, tell me what you need and I’ll do my best to help."
+)
+
+GREETING_RESPONSES = {
+    "hi": "Hey! 👋 How are you doing today?",
+    "hey": "Hey! 😊 What can I help you with today?",
+    "hello": "Hello! 👋 How can I help you today?",
+    "hey hi": "Hey! 👋 Good to see you. What are we working on today?",
+    "how are you": "I'm doing great and ready to help! 😊 What are you working on today?",
+    "how are you doing": "I'm doing great and ready to help! 😊 What are you working on today?",
+    "how's it going": "Doing great and ready for legal research! 😊 What are you working on today?",
+    "thanks": "You're welcome! 😊 Let me know if you need help with anything.",
+    "thank you": "You're welcome! 😊 Let me know if you need help with anything.",
+}
+
+GREETING_VARIATIONS = [
+    "Hey! 👋 Good to see you. What are we working on today?",
+    "Hey there! 😊 How can I help you with your legal research or cases today?",
+    "Hello! 👋 Ready when you are. What legal matter would you like to explore?",
+    "Hi! 😊 What legal matter or research are we diving into today?",
+]
+
+OUT_OF_SCOPE_VARIATIONS = [
+    """That’s outside my legal scope, buddy. 😊 I’m designed specifically to help legal professionals with legal research, case analysis, documents, evidence, drafting, and hearing preparation. ⚖️
+
+What legal matter would you like to work on?""",
+
+    """That's outside my area, buddy. 😊 I'm designed specifically to help legal professionals with legal research, case analysis, documents, evidence, drafting, and hearings. ⚖️
+
+You can ask me something like:
+• What does BNS Section 103 provide?
+• Analyze the evidence in my case
+• Summarize my case documents
+• Prepare for an upcoming hearing
+• Draft a legal notice""",
+
+    """That one's outside my legal scope. 😊 I’m built to help lawyers with legal research and case work rather than entertainment or general information.
+
+I can help with:
+⚖️ Legal research
+📁 Case analysis
+📄 Document analysis
+🔎 Evidence evaluation
+📝 Legal drafting
+📅 Hearing preparation
+
+What legal matter would you like to work on?""",
+
+    """I’m dedicated to legal and case assistance, so that topic is outside my scope. 😊
+
+I can assist you with:
+⚖️ Statutory research (BNS, BNSS, BSA)
+📁 Case analysis & matter summaries
+📄 Document & evidence review
+📝 Legal notice & pleading drafting
+📅 Hearing preparation
+
+What legal matter can I help you with today?""",
+]
+
+
+def has_greeting_prefix(text: str) -> bool:
+    """Checks if a query begins with an introductory greeting."""
+    cleaned = text.strip().lower()
+    return bool(re.match(r'^(?:hey|hi|hello|good\s+(?:morning|afternoon|evening|day)|greetings)[,\s!]+', cleaned))
+
+
+def generate_out_of_scope_response(
+    message: str,
+    history: Optional[List[Dict[str, Any]]] = None
+) -> str:
+    """
+    Returns a polite, friendly, and context-aware legal scope boundary response.
+    Never answers non-legal questions (programming, movies, sports, trivia, etc.)
+    and redirects the user toward supported legal capabilities.
+    """
+    cleaned = message.strip()
+    lower = cleaned.lower()
+
+    # 1. Check for greeting prefix + out of scope (e.g. "Hey, what is the latest Vijay movie?")
+    if re.match(r'^(?:hey|hi|hello|good\s+(?:morning|afternoon|evening|day)|greetings)[,\s!]+', lower):
+        return (
+            "Hey! 👋 That topic is outside my legal scope. I'm designed to help lawyers with legal "
+            "research, case analysis, documents, evidence, drafting, and hearing preparation. ⚖️\n\n"
+            "What legal matter can I help you with?"
+        )
+
+    # 2. Extract recent history context
+    prev_user_text = ""
+    prev_was_out_of_scope = False
+    if history:
+        for turn in reversed(history):
+            if turn.get("role") == "user":
+                prev_user_text = str(turn.get("content", "")).lower()
+                q_type = str(turn.get("query_type", "")).upper()
+                if q_type in ("OUT_OF_SCOPE", "GENERAL_NON_LEGAL"):
+                    prev_was_out_of_scope = True
+                break
+
+    # 3. Programming follow-up check (e.g., "for odd or even", "make it shorter", "can you make it shorter?")
+    is_coding_followup = (
+        ("odd" in lower or "even" in lower or "shorter" in lower or "faster" in lower or "code" in lower) and
+        ("python" in prev_user_text or "c++" in prev_user_text or "code" in prev_user_text or "program" in prev_user_text or prev_was_out_of_scope)
+    )
+    if is_coding_followup:
+        return (
+            "That's still a programming request, so it's outside my legal scope. 😊\n\n"
+            "I'm here to help with legal research, case analysis, evidence, documents, drafting, "
+            "and hearing preparation. ⚖️"
+        )
+
+    # 4. Programming initial request (e.g. "write a python code", "c++ code for creating python file")
+    if any(term in lower for term in ["python", "c++", "java", "javascript", "code", "programming", "script", "function", "algorithm"]):
+        return (
+            "Programming isn't my area, buddy. 😊 I'm focused on helping legal professionals with "
+            "legal research, case analysis, documents, evidence, drafting, and hearings. ⚖️\n\n"
+            "If you have a legal question, I’m happy to help."
+        )
+
+    # 5. Entertainment / movie follow-up (e.g., "what about the previous one?")
+    if ("previous" in lower or "before that" in lower or "other one" in lower or "shorter" in lower) and (
+        "movie" in prev_user_text or "film" in prev_user_text or "vijay" in prev_user_text or prev_was_out_of_scope
+    ):
+        return (
+            "That's still outside my legal scope, buddy. 😊\n\n"
+            "I'm designed specifically for legal work. What legal matter or case would you like to explore? ⚖️"
+        )
+
+    # 6. General out of scope variations
+    import random
+    return random.choice(OUT_OF_SCOPE_VARIATIONS)
 
 
 def generate_conversational_response(
     pipeline: LegalAIRAGPipeline,
     message: str,
+    history: Optional[List[Dict[str, Any]]] = None,
     max_new_tokens: int = 256
 ) -> str:
-    """Generates a natural conversational response reusing the existing Qwen2.5-14B + LoRA singleton."""
-    messages = [
-        {"role": "system", "content": CONVERSATIONAL_SYSTEM_PROMPT},
-        {"role": "user", "content": message}
-    ]
+    """Generates a natural, friendly conversational response for greetings, courtesies, and pleasantries."""
+    cleaned = message.strip()
+    lower = cleaned.lower()
+    lower_norm = re.sub(r'[\s,?!.]+', ' ', lower).strip()
+
+    # 1. Interpersonal, frustration, and emotional messages (handled naturally & professionally)
+    if re.search(r'\b(?:fuck\s+(?:you|off)|screw\s+you|bitch|bastard|asshole)\b', lower):
+        return "That’s not appropriate 😅 but no worries. I’m here to help. What can I do for you?"
+
+    if re.search(r"\byou(?:'re|\s+are)\s+(?:useless|stupid|dumb|annoying|terrible)\b|\byou\s+suck\b", lower):
+        return "I'm sorry if I didn't get that right. 😅 I'm focused on helping with legal research, case analysis, documents, and hearings. Tell me what you're working on and I'll do my best to help."
+
+    if re.search(r"\bthis\s+is\s+(?:stupid|dumb|useless|nonsense|crap|shit)\b|\bwhat\s+the\s+(?:hell|fuck)\b|\bdamn(?:\s+it)?\b", lower):
+        return "I hear your frustration. 😅 Let me know what you're trying to work through and we can tackle it together."
+
+    # 2. Specific Conversational Pleasantries & Courtesies
+    if re.search(r"\bhow\s+are\s+you\b|\bhow'?s\s+it\s+going\b|\bhow\s+do\s+you\s+do\b", lower):
+        return "I'm doing great and ready to help! 😊 What are you working on today?"
+
+    if re.match(r'^(?:thanks|thank\s+you|thx|many\s+thanks|appreciate\s+it)(?:[\s,!.]+)?$', lower_norm):
+        return "You're welcome! 😊 Let me know if you need help with anything."
+
+    if re.match(r'^(?:ok|okay|cool|nice|great|got\s+it|understood|awesome|perfect|sure|fine)(?:[\s,!.]+)?$', lower_norm):
+        return "Sounds good! 😊 Let me know whenever you're ready to dive into a legal question or case matter."
+
+    if lower_norm in GREETING_RESPONSES:
+        return GREETING_RESPONSES[lower_norm]
+
+    if re.match(r'^(?:hi|hey|hello|hey\s+hi|hi\s+hey|hello\s+hi|hey\s+there|hiya|greetings)(?:[\s,!.]+)?$', lower_norm):
+        import random
+        return random.choice(GREETING_VARIATIONS)
+
+    if re.match(r'^(?:good\s+morning)(?:[\s,!.]+)?$', lower_norm):
+        return "Good morning! 👋 Ready when you are. What legal matter or research are we working on today?"
+
+    if re.match(r'^(?:good\s+evening)(?:[\s,!.]+)?$', lower_norm):
+        return "Good evening! 👋 Ready when you are. What legal matter or research are we working on today?"
+
+    # 3. Natural Capability Inquiries ("what can you do for me", "what are the things you can able to do fro me")
+    if re.search(r'\bwhat\s+(?:are\s+)?(?:all\s+)?(?:the\s+)?(?:things\s+)?(?:you\s+can\s+(?:be\s+)?able\s+to\s+do|can\s+you\s+do|are\s+you\s+able\s+to\s+do|do\s+you\s+do)(?:\s+(?:for|fro)\s+me)?\b', lower) or \
+       re.search(r'\bwhat\s+are\s+the\s+things\s+you\s+can\s+.*?\b', lower) or \
+       re.search(r'\b(?:what\s+can\s+you\s+help\s+(?:me\s+)?with|how\s+can\s+you\s+help(?:\s+me)?)\b', lower) or \
+       re.search(r'\b(?:what\s+can\s+i\s+ask(?:\s+you)?|what\s+kinds?\s+of\s+questions?\s+can\s+i\s+ask|what\s+services?\s+do\s+you\s+provide)\b', lower) or \
+       re.search(r'\b(?:what\s+are\s+your\s+(?:capabilities|features)|tell\s+me\s+what\s+you\s+can\s+do|what\s+can\s+i\s+use\s+you\s+for|what\s+do\s+you\s+help\s+with)\b', lower) or \
+       re.search(r'\b(?:how\s+can\s+i\s+use\s+(?:you|legalai)|what\s+can\s+legalai\s+do|what\s+does\s+legalai\s+do|how\s+to\s+use\s+(?:you|legalai)|explain\s+your\s+capabilities)\b', lower) or \
+       re.search(r'\bwhat\s+are\s+you\s+doing\b', lower) or \
+       (("what" in lower or "how" in lower or "tell" in lower) and ("you" in lower or "legalai" in lower) and ("do" in lower or "help" in lower or "capabilities" in lower or "able" in lower or "features" in lower or "ask" in lower)):
+        return (
+            "I am LegalAI, an intelligent legal assistant for Indian law and practice. Here is what I can do for you:\n\n"
+            "1. **Statutory Research & Exact Provision Lookup**: Ask about sections, definitions, offences, and penalties across central Acts including the Bharatiya Nyaya Sanhita (BNS), BNSS, BSA, Information Technology Act, Companies Act, POCSO, CPC, and other enactments.\n\n"
+            "2. **Cybercrime & Financial Fraud Guidance**: Identify applicable penal and regulatory provisions for online financial fraud, phishing, unauthorized UPI transactions, and identity theft.\n\n"
+            "3. **Case Document Analysis**: In single-case mode, analyze uploaded case pleadings, FIRs, charge sheets, witness statements, identify evidentiary gaps, and prepare strategic points for upcoming hearings.\n\n"
+            "4. **Procedural & Court Practice**: Inquire about bail procedures, limitation periods, court hierarchies, and structured legal drafting.\n\n"
+            "Feel free to ask a specific legal question, provide a statutory citation, or select a case from your workspace to begin!"
+        )
+
+
+    # Model generation with LEGALAI_SYSTEM_PROMPT for general pleasantries
+    chat_turns = [{"role": "system", "content": LEGALAI_SYSTEM_PROMPT}]
+    if history:
+        for turn in history[-4:]:
+            r = turn.get("role")
+            c = turn.get("content", "")
+            if r in ("user", "assistant") and c:
+                chat_turns.append({"role": r, "content": c})
+    chat_turns.append({"role": "user", "content": message})
+
     prompt = pipeline.tokenizer.apply_chat_template(
-        messages,
+        chat_turns,
         tokenize=False,
         add_generation_prompt=True
     )
@@ -345,7 +568,9 @@ def generate_conversational_response(
         output_ids = pipeline.model.generate(
             **inputs,
             max_new_tokens=max_new_tokens,
-            do_sample=False,
+            do_sample=True,
+            temperature=0.7,
+            top_p=0.9,
             pad_token_id=pipeline.tokenizer.pad_token_id,
             eos_token_id=pipeline.tokenizer.eos_token_id,
         )
@@ -354,14 +579,63 @@ def generate_conversational_response(
     return pipeline.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
 
 
+def generate_ambiguous_response(
+    message: str,
+    history: Optional[List[Dict[str, Any]]] = None
+) -> str:
+    """
+    Returns a polite clarification question when a query is ambiguous, incomplete, or isolated.
+    Never hallucinates an interpretation, never calls Legal RAG, and avoids robotic rejections.
+    """
+    cleaned = message.strip()
+    lower = cleaned.lower()
+    if len(cleaned) <= 15 and re.match(r'^[a-zA-Z0-9_\-\.\s\?]+$', cleaned):
+        return f"Could you give me a little more context about what you mean by '{cleaned}'?"
+    elif "what about that" in lower or "explain that" in lower or "tell me more" in lower:
+        return "Could you clarify what you're referring to so I can best assist with your legal matter or research?"
+    else:
+        return f"Could you provide a bit more detail on what you mean by '{cleaned}'? I'm here to assist with your legal research, cases, and documents."
+
+
+def resolve_case_identifier(ident: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    """Resolves (case_id, case_number) from database given either id or caseNumber."""
+    if not ident:
+        return None, None
+    try:
+        conn = sqlite3.connect(APP_DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, caseNumber FROM cases WHERE id = ? OR caseNumber = ?",
+            (ident, ident)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return row[0], row[1]
+    except Exception as e:
+        logger.warning(f"Error resolving case identifier {ident}: {e}")
+    return ident, ident
+
+
+def get_best_rag_case_id(case_rag_pipe, case_id: Optional[str], case_number: Optional[str]) -> Optional[str]:
+    """Determines the best case identifier that exists in the Case RAG index."""
+    if not case_rag_pipe:
+        return case_number or case_id
+    if case_number and case_rag_pipe.index.count_chunks_for_case(case_number) > 0:
+        return case_number
+    if case_id and case_rag_pipe.index.count_chunks_for_case(case_id) > 0:
+        return case_id
+    return case_number or case_id
+
+
 def generate_case_guidance(case_id: Optional[str] = None) -> str:
     """Generates factual case guidance based on registered case matter without fabricating case facts."""
     if case_id:
         conn = sqlite3.connect(APP_DB_PATH)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT caseNumber, title, court, status, nextHearing, matterSummary FROM cases WHERE id = ?",
-            (case_id,)
+            "SELECT caseNumber, title, court, status, nextHearing, matterSummary FROM cases WHERE id = ? OR caseNumber = ?",
+            (case_id, case_id)
         )
         row = cursor.fetchone()
         conn.close()
@@ -549,8 +823,8 @@ async def get_case_documents(case_id: str):
     cursor.execute("""
         SELECT id, caseId, caseNumber, filename, category, fileType,
                fileSize, uploadedDate, status, statusLabel, pages, excerpt
-        FROM documents WHERE caseId = ?
-    """, (case_id,))
+        FROM documents WHERE caseId = ? OR caseNumber = ?
+    """, (case_id, case_id))
     rows = cursor.fetchall()
     conn.close()
 
@@ -680,57 +954,181 @@ async def ai_chat(req: AIChatRequest):
     router = get_query_router()
     route_result = router.classify(req.content, conversation_history=req.history)
 
+    # Pre-Route: Foreign-Law Redirection (Strict Indian Legal Scope Enforcement)
+    if indian_knowledge_bridge:
+        is_foreign, foreign_redirect = indian_knowledge_bridge.check_foreign_law_query(req.content)
+        if is_foreign:
+            return {
+                "id": f"msg-{int(time.time() * 1000)}",
+                "role": "assistant",
+                "timestamp": time.strftime("%I:%M %p"),
+                "content": foreign_redirect,
+                "query_type": "OUT_OF_SCOPE",
+                "type": "scope_boundary",
+                "reliability": "supported",
+                "reliabilityLabel": "Indian Scope Boundary",
+                "sources": [],
+                "citations": [],
+                "requires_verification": False,
+                "confidence_status": "INDIAN_SCOPE_POLICY",
+                "evidence_status": "REDIRECTED",
+                "generation_time_sec": round(time.time() - t0, 3)
+            }
+
     # Route 1: CONVERSATIONAL
     if route_result.intent == QueryIntent.CONVERSATIONAL:
         answer_text = await asyncio.to_thread(
             generate_conversational_response,
             pipeline=pipeline,
             message=req.content,
+            history=req.history,
             max_new_tokens=256
         )
         return {
             "id": f"msg-{int(time.time() * 1000)}",
+            "request_id": f"req-{int(time.time() * 1000)}",
             "role": "assistant",
             "timestamp": time.strftime("%I:%M %p"),
             "content": answer_text,
             "query_type": "CONVERSATIONAL",
+            "route": "CONVERSATIONAL",
             "type": "conversational",
             "reliability": "supported",
-            "reliabilityLabel": "General Assistance",
+            "reliabilityLabel": "Conversational Response",
             "sources": [],
             "citations": [],
             "requires_verification": False,
             "confidence_status": "CONVERSATIONAL",
             "evidence_status": "CONVERSATIONAL",
-            "generation_time_sec": round(time.time() - t0, 3)
+            "generation_time_sec": round(time.time() - t0, 3),
+            "intent": route_result.intent.value,
+            "sub_intent": getattr(route_result, "sub_intent", "CONVERSATIONAL"),
+            "legal_intent_confidence": getattr(route_result, "legal_intent_confidence", 0.0),
+            "case_intent_confidence": getattr(route_result, "case_intent_confidence", 0.0),
+            "resolved_act": None,
+            "provision_type": None,
+            "provision_number": None,
+            "retrieval_mode": "NONE",
+            "retrieval_candidate_count": 0,
+            "accepted_source_count": 0,
+            "source_count": 0,
+            "adapter": None,
+            "qwen_invoked": False,
+            "abstained": False
         }
 
-    # Route 2: CASE_QUERY or (Case Mode and not an explicit statutory query)
-    effective_case_id = req.caseId or (req.selectedCases[0] if (req.selectedCases and len(req.selectedCases) > 0) else None)
-    is_case_mode = (req.mode == "SINGLE_CASE" and effective_case_id) or (req.selectedCases and len(req.selectedCases) > 0)
+    # Route 2: OUT_OF_SCOPE / GENERAL_NON_LEGAL
+    if route_result.intent in (QueryIntent.OUT_OF_SCOPE, QueryIntent.GENERAL_NON_LEGAL):
+        answer_text = generate_out_of_scope_response(
+            message=req.content,
+            history=req.history
+        )
+        return {
+            "id": f"msg-{int(time.time() * 1000)}",
+            "request_id": f"req-{int(time.time() * 1000)}",
+            "role": "assistant",
+            "timestamp": time.strftime("%I:%M %p"),
+            "content": answer_text,
+            "query_type": "OUT_OF_SCOPE",
+            "route": "OUT_OF_SCOPE",
+            "type": "conversational",
+            "reliability": "supported",
+            "reliabilityLabel": "Legal Scope Boundary",
+            "sources": [],
+            "citations": [],
+            "requires_verification": False,
+            "confidence_status": "OUT_OF_SCOPE",
+            "evidence_status": "OUT_OF_SCOPE",
+            "generation_time_sec": round(time.time() - t0, 3),
+            "intent": route_result.intent.value,
+            "sub_intent": getattr(route_result, "sub_intent", "OUT_OF_SCOPE"),
+            "legal_intent_confidence": getattr(route_result, "legal_intent_confidence", 0.0),
+            "case_intent_confidence": getattr(route_result, "case_intent_confidence", 0.0),
+            "resolved_act": None,
+            "provision_type": None,
+            "provision_number": None,
+            "retrieval_mode": "NONE",
+            "retrieval_candidate_count": 0,
+            "accepted_source_count": 0,
+            "source_count": 0,
+            "adapter": None,
+            "qwen_invoked": False,
+            "abstained": True
+        }
 
-    if route_result.intent == QueryIntent.CASE_QUERY or (is_case_mode and route_result.intent != QueryIntent.LEGAL_QUERY):
-        if not effective_case_id:
+    # Route 2B: AMBIGUOUS
+    if route_result.intent == QueryIntent.AMBIGUOUS:
+        answer_text = generate_ambiguous_response(
+            message=req.content,
+            history=req.history
+        )
+        return {
+            "id": f"msg-{int(time.time() * 1000)}",
+            "request_id": f"req-{int(time.time() * 1000)}",
+            "role": "assistant",
+            "timestamp": time.strftime("%I:%M %p"),
+            "content": answer_text,
+            "query_type": "AMBIGUOUS",
+            "route": "AMBIGUOUS",
+            "type": "conversational",
+            "reliability": "supported",
+            "reliabilityLabel": "Clarification Requested",
+            "sources": [],
+            "citations": [],
+            "requires_verification": False,
+            "confidence_status": "AMBIGUOUS",
+            "evidence_status": "AMBIGUOUS",
+            "generation_time_sec": round(time.time() - t0, 3),
+            "intent": route_result.intent.value,
+            "sub_intent": getattr(route_result, "sub_intent", "AMBIGUOUS"),
+            "legal_intent_confidence": getattr(route_result, "legal_intent_confidence", 0.0),
+            "case_intent_confidence": getattr(route_result, "case_intent_confidence", 0.0),
+            "resolved_act": None,
+            "provision_type": None,
+            "provision_number": None,
+            "retrieval_mode": "NONE",
+            "retrieval_candidate_count": 0,
+            "accepted_source_count": 0,
+            "source_count": 0,
+            "adapter": None,
+            "qwen_invoked": False,
+            "abstained": False
+        }
+
+    # Route 3: CASE_QUERY or (Case Mode and not an explicit statutory, conversational, or out-of-scope query)
+    effective_case_id = req.caseId or (req.selectedCases[0] if (req.selectedCases and len(req.selectedCases) > 0) else None) or req.caseNumber
+    cid, cnum = resolve_case_identifier(effective_case_id)
+    rag_case_id = get_best_rag_case_id(case_rag_pipeline, cid, cnum) or effective_case_id
+    is_case_mode = (req.mode == "SINGLE_CASE" and (effective_case_id or rag_case_id)) or (req.selectedCases and len(req.selectedCases) > 0)
+
+    if route_result.intent == QueryIntent.CASE_QUERY or (is_case_mode and route_result.intent not in (QueryIntent.LEGAL_QUERY, QueryIntent.CONVERSATIONAL, QueryIntent.OUT_OF_SCOPE, QueryIntent.GENERAL_NON_LEGAL, QueryIntent.AMBIGUOUS)):
+
+        if not rag_case_id:
             answer_text = generate_case_guidance(None)
             sources = []
             rel = "supported"
             rel_label = "Case Guidance"
             conf_status = "CASE_GUIDANCE"
         elif case_rag_pipeline:
+            logger.info(f"Trace Single Matter: context={req.mode or 'SINGLE_CASE'}, case_id={rag_case_id}, route=CASE_QUERY, retrieval=CASE_RAG, adapter=case_analysis_v1")
+            print(f"[TRACE] context={req.mode or 'SINGLE_CASE'} | case_id={rag_case_id} | route=CASE_QUERY | retrieval=CASE_RAG | adapter=case_analysis_v1")
             case_analysis = await asyncio.to_thread(
                 case_rag_pipeline.answer_case_question,
                 question=req.content,
-                case_id=effective_case_id,
+                case_id=rag_case_id,
                 top_k=6,
-                max_new_tokens=768
+                max_new_tokens=512
             )
             answer_text = case_analysis.answer
             sources = case_analysis.case_sources + case_analysis.legal_sources
             rel = case_analysis.reliability
             rel_label = case_analysis.reliability_label
             conf_status = case_analysis.confidence_status
+            matter_guidance = generate_case_guidance(rag_case_id)
+            if "Case Matter:" in matter_guidance and not answer_text.startswith("**Case Matter:**"):
+                answer_text = f"{matter_guidance}\n\n---\n\n{answer_text}"
         else:
-            answer_text = generate_case_guidance(effective_case_id)
+            answer_text = generate_case_guidance(rag_case_id)
             sources = []
             rel = "supported"
             rel_label = "Case Guidance"
@@ -738,10 +1136,12 @@ async def ai_chat(req: AIChatRequest):
 
         return {
             "id": f"msg-{int(time.time() * 1000)}",
+            "request_id": f"req-{int(time.time() * 1000)}",
             "role": "assistant",
             "timestamp": time.strftime("%I:%M %p"),
             "content": answer_text,
             "query_type": "CASE_QUERY",
+            "route": "CASE_QUERY",
             "type": "case_analysis",
             "reliability": rel,
             "reliabilityLabel": rel_label,
@@ -750,10 +1150,124 @@ async def ai_chat(req: AIChatRequest):
             "requires_verification": (rel == "verify"),
             "confidence_status": conf_status,
             "evidence_status": "ANALYZED" if sources else "INSUFFICIENT_CASE_MATERIAL",
-            "generation_time_sec": round(time.time() - t0, 3)
+            "generation_time_sec": round(time.time() - t0, 3),
+            "intent": route_result.intent.value,
+            "sub_intent": getattr(route_result, "sub_intent", "CASE_MATTER"),
+            "legal_intent_confidence": getattr(route_result, "legal_intent_confidence", 0.0),
+            "case_intent_confidence": getattr(route_result, "case_intent_confidence", 0.95),
+            "resolved_act": None,
+            "provision_type": None,
+            "provision_number": None,
+            "retrieval_mode": "CASE_RAG",
+            "retrieval_candidate_count": len(sources),
+            "accepted_source_count": len(sources),
+            "source_count": len(sources),
+            "adapter": "case_analysis_v1",
+            "qwen_invoked": True if case_rag_pipeline and rag_case_id else False,
+            "abstained": False
         }
 
-    # Route 3: LEGAL_QUERY (Existing unweakened LegalAIRAGPipeline)
+    # Route 3: LEGAL_QUERY (Production Expanded Indian Legal Knowledge Pipeline)
+    if indian_knowledge_pipeline:
+        if indian_knowledge_bridge:
+            is_foreign, redirect_resp = indian_knowledge_bridge.check_foreign_law_query(req.content)
+            if is_foreign:
+                return {
+                    "id": f"msg-{int(time.time() * 1000)}",
+                    "role": "assistant",
+                    "timestamp": time.strftime("%I:%M %p"),
+                    "content": redirect_resp,
+                    "query_type": "LEGAL_QUERY",
+                    "type": "legal",
+                    "reliability": "supported",
+                    "reliabilityLabel": "Foreign-Law Scope Redirection",
+                    "sources": [],
+                    "citations": [],
+                    "requires_verification": False,
+                    "confidence_status": "OUT_OF_SCOPE_FOREIGN_LAW",
+                    "evidence_status": "OUT_OF_SCOPE_FOREIGN_LAW",
+                    "generation_time_sec": round(time.time() - t0, 3)
+                }
+
+        indian_rag_res = await asyncio.to_thread(
+            indian_knowledge_pipeline.query,
+            question=req.content,
+            incident_date=req.effective_date,
+            conversation_history=req.history
+        )
+
+        sources = [
+            {
+                "chunk_id": s["chunk_id"],
+                "act_name": s["title"],
+                "section_number": s["citation"],
+                "section_title": s["citation"],
+                "reference": s["citation"],
+                "content": "",
+                "source_url": s["source_url"],
+                "similarity_score": s["score"],
+                "source_type": s["document_type"],
+                "hierarchy": s["authority_tier"],
+                "temporal_status": s["temporal_status"]
+            }
+            for s in indian_rag_res.get("sources", [])
+        ]
+        answer_text = indian_rag_res.get("answer", "")
+        if has_greeting_prefix(req.content) and not answer_text.startswith("Absolutely!") and not answer_text.startswith("Hey"):
+            answer_text = f"Absolutely! 👋\n\n{answer_text}"
+
+        abstained = indian_rag_res.get("abstained", False)
+        temporal_status = indian_rag_res.get("temporal_status", "UNKNOWN")
+        evidence_status = indian_rag_res.get("evidence_status", "STATUTORY_AUTHORITY" if not abstained else "INSUFFICIENT_RETRIEVAL")
+        confidence_status = indian_rag_res.get("confidence_status", "HIGH" if not abstained else "INSUFFICIENT_RETRIEVAL")
+
+        if abstained:
+            rel = "verify"
+            rel_label = "Verification Required"
+            requires_verification = True
+        elif temporal_status == "STRUCK_DOWN":
+            rel = "verify"
+            rel_label = "Judicially Struck Down"
+            requires_verification = True
+        else:
+            rel = "supported"
+            rel_label = "Verified Indian Legal Authority"
+            requires_verification = False
+
+        sq = indian_rag_res.get("structured_query", {})
+        return {
+            "id": f"msg-{int(time.time() * 1000)}",
+            "request_id": f"req-{int(time.time() * 1000)}",
+            "role": "assistant",
+            "timestamp": time.strftime("%I:%M %p"),
+            "content": answer_text,
+            "query_type": "LEGAL_QUERY",
+            "route": "LEGAL_QUERY",
+            "type": "legal",
+            "reliability": rel,
+            "reliabilityLabel": rel_label,
+            "sources": sources,
+            "citations": [s["reference"] for s in sources],
+            "requires_verification": requires_verification,
+            "confidence_status": confidence_status,
+            "evidence_status": evidence_status,
+            "generation_time_sec": round(time.time() - t0, 3),
+            "intent": route_result.intent.value,
+            "sub_intent": getattr(route_result, "sub_intent", "LEGAL_QUERY"),
+            "legal_intent_confidence": getattr(route_result, "legal_intent_confidence", 0.95),
+            "case_intent_confidence": getattr(route_result, "case_intent_confidence", 0.0),
+            "resolved_act": sq.get("act") or sq.get("unindexed_act_name"),
+            "provision_type": sq.get("provision_type"),
+            "provision_number": sq.get("provision_number"),
+            "retrieval_mode": indian_rag_res.get("retrieval_mode", "LEGAL_RAG"),
+            "retrieval_candidate_count": len(sources),
+            "accepted_source_count": len(sources),
+            "source_count": len(sources),
+            "adapter": indian_rag_res.get("adapter", "outputs/qwen14b-legalai-v2" if indian_rag_res.get("qwen_invoked") else None),
+            "qwen_invoked": indian_rag_res.get("qwen_invoked", False),
+            "abstained": abstained
+        }
+
     rag_result = await asyncio.to_thread(
         pipeline.answer_question,
         question=req.content,
@@ -767,11 +1281,15 @@ async def ai_chat(req: AIChatRequest):
     rel, rel_label = map_reliability(rag_result)
     sources = format_sources(rag_result.get("retrieved_sources", []))
 
+    answer_text = rag_result.get("answer", "")
+    if has_greeting_prefix(req.content) and not answer_text.startswith("Absolutely!") and not answer_text.startswith("Hey"):
+        answer_text = f"Absolutely! 👋\n\n{answer_text}"
+
     return {
         "id": f"msg-{int(time.time() * 1000)}",
         "role": "assistant",
         "timestamp": time.strftime("%I:%M %p"),
-        "content": rag_result.get("answer", ""),
+        "content": answer_text,
         "query_type": "LEGAL_QUERY",
         "type": "legal",
         "reliability": rel,
@@ -781,7 +1299,7 @@ async def ai_chat(req: AIChatRequest):
         "requires_verification": (rel == "verify"),
         "confidence_status": rag_result.get("confidence_status", ""),
         "evidence_status": rag_result.get("evidence_status", ""),
-        "generation_time_sec": rag_result.get("generation_time_sec", 0.0)
+        "generation_time_sec": round(time.time() - t0, 3)
     }
 
 
@@ -804,6 +1322,7 @@ async def ai_chat_stream(req: AIChatRequest):
                 generate_conversational_response,
                 pipeline=pipeline,
                 message=req.content,
+                history=req.history,
                 max_new_tokens=256
             )
             words = answer_text.split(" ")
@@ -822,7 +1341,7 @@ async def ai_chat_stream(req: AIChatRequest):
                 "query_type": "CONVERSATIONAL",
                 "type": "conversational",
                 "reliability": "supported",
-                "reliabilityLabel": "General Assistance",
+                "reliabilityLabel": "Conversational Greeting",
                 "sources": [],
                 "citations": [],
                 "requires_verification": False,
@@ -833,32 +1352,106 @@ async def ai_chat_stream(req: AIChatRequest):
             yield f"event: complete\ndata: {json.dumps(complete_payload)}\n\n"
             return
 
-        # Stream Route 2: CASE_QUERY or (Case Mode and not an explicit statutory query)
-        effective_case_id = req.caseId or (req.selectedCases[0] if (req.selectedCases and len(req.selectedCases) > 0) else None)
-        is_case_mode = (req.mode == "SINGLE_CASE" and effective_case_id) or (req.selectedCases and len(req.selectedCases) > 0)
+        # Stream Route 2: OUT_OF_SCOPE / GENERAL_NON_LEGAL
+        if route_result.intent in (QueryIntent.OUT_OF_SCOPE, QueryIntent.GENERAL_NON_LEGAL):
+            answer_text = generate_out_of_scope_response(
+                message=req.content,
+                history=req.history
+            )
+            words = answer_text.split(" ")
+            current_text = ""
+            for i, word in enumerate(words):
+                current_text += (word if i == 0 else " " + word)
+                token_payload = {"token": current_text}
+                yield f"event: token\ndata: {json.dumps(token_payload)}\n\n"
+                await asyncio.sleep(0.012)
 
-        if route_result.intent == QueryIntent.CASE_QUERY or (is_case_mode and route_result.intent != QueryIntent.LEGAL_QUERY):
-            if not effective_case_id:
+            complete_payload = {
+                "id": f"msg-{int(time.time() * 1000)}",
+                "role": "assistant",
+                "timestamp": time.strftime("%I:%M %p"),
+                "content": answer_text,
+                "query_type": "OUT_OF_SCOPE",
+                "type": "conversational",
+                "reliability": "supported",
+                "reliabilityLabel": "Legal Scope Boundary",
+                "sources": [],
+                "citations": [],
+                "requires_verification": False,
+                "confidence_status": "OUT_OF_SCOPE",
+                "evidence_status": "OUT_OF_SCOPE",
+                "generation_time_sec": round(time.time() - t0, 3)
+            }
+            yield f"event: complete\ndata: {json.dumps(complete_payload)}\n\n"
+            return
+
+        # Stream Route 2B: AMBIGUOUS
+        if route_result.intent == QueryIntent.AMBIGUOUS:
+            answer_text = generate_ambiguous_response(
+                message=req.content,
+                history=req.history
+            )
+            words = answer_text.split(" ")
+            current_text = ""
+            for i, word in enumerate(words):
+                current_text += (word if i == 0 else " " + word)
+                token_payload = {"token": current_text}
+                yield f"event: token\ndata: {json.dumps(token_payload)}\n\n"
+                await asyncio.sleep(0.012)
+
+            complete_payload = {
+                "id": f"msg-{int(time.time() * 1000)}",
+                "role": "assistant",
+                "timestamp": time.strftime("%I:%M %p"),
+                "content": answer_text,
+                "query_type": "AMBIGUOUS",
+                "type": "conversational",
+                "reliability": "supported",
+                "reliabilityLabel": "Clarification Requested",
+                "sources": [],
+                "citations": [],
+                "requires_verification": False,
+                "confidence_status": "AMBIGUOUS",
+                "evidence_status": "AMBIGUOUS",
+                "generation_time_sec": round(time.time() - t0, 3)
+            }
+            yield f"event: complete\ndata: {json.dumps(complete_payload)}\n\n"
+            return
+
+        # Stream Route 3: CASE_QUERY or (Case Mode and not an explicit statutory, conversational, or out-of-scope query)
+        effective_case_id = req.caseId or (req.selectedCases[0] if (req.selectedCases and len(req.selectedCases) > 0) else None) or req.caseNumber
+        cid, cnum = resolve_case_identifier(effective_case_id)
+        rag_case_id = get_best_rag_case_id(case_rag_pipeline, cid, cnum) or effective_case_id
+        is_case_mode = (req.mode == "SINGLE_CASE" and (effective_case_id or rag_case_id)) or (req.selectedCases and len(req.selectedCases) > 0)
+
+        if route_result.intent == QueryIntent.CASE_QUERY or (is_case_mode and route_result.intent not in (QueryIntent.LEGAL_QUERY, QueryIntent.CONVERSATIONAL, QueryIntent.OUT_OF_SCOPE, QueryIntent.GENERAL_NON_LEGAL, QueryIntent.AMBIGUOUS)):
+
+            if not rag_case_id:
                 answer_text = generate_case_guidance(None)
                 sources = []
                 rel = "supported"
                 rel_label = "Case Guidance"
                 conf_status = "CASE_GUIDANCE"
             elif case_rag_pipeline:
+                logger.info(f"Trace Single Matter: context={req.mode or 'SINGLE_CASE'}, case_id={rag_case_id}, route=CASE_QUERY, retrieval=CASE_RAG, adapter=case_analysis_v1")
+                print(f"[TRACE] context={req.mode or 'SINGLE_CASE'} | case_id={rag_case_id} | route=CASE_QUERY | retrieval=CASE_RAG | adapter=case_analysis_v1")
                 case_analysis = await asyncio.to_thread(
                     case_rag_pipeline.answer_case_question,
                     question=req.content,
-                    case_id=effective_case_id,
+                    case_id=rag_case_id,
                     top_k=6,
-                    max_new_tokens=768
+                    max_new_tokens=512
                 )
                 answer_text = case_analysis.answer
                 sources = case_analysis.case_sources + case_analysis.legal_sources
                 rel = case_analysis.reliability
                 rel_label = case_analysis.reliability_label
                 conf_status = case_analysis.confidence_status
+                matter_guidance = generate_case_guidance(rag_case_id)
+                if "Case Matter:" in matter_guidance and not answer_text.startswith("**Case Matter:**"):
+                    answer_text = f"{matter_guidance}\n\n---\n\n{answer_text}"
             else:
-                answer_text = generate_case_guidance(effective_case_id)
+                answer_text = generate_case_guidance(rag_case_id)
                 sources = []
                 rel = "supported"
                 rel_label = "Case Guidance"
@@ -878,6 +1471,7 @@ async def ai_chat_stream(req: AIChatRequest):
                 "timestamp": time.strftime("%I:%M %p"),
                 "content": answer_text,
                 "query_type": "CASE_QUERY",
+                "route": "CASE_QUERY",
                 "type": "case_analysis",
                 "reliability": rel,
                 "reliabilityLabel": rel_label,
@@ -891,7 +1485,128 @@ async def ai_chat_stream(req: AIChatRequest):
             yield f"event: complete\ndata: {json.dumps(complete_payload)}\n\n"
             return
 
-        # Stream Route 3: LEGAL_QUERY (Existing RAG pipeline)
+        # Stream Route 3: LEGAL_QUERY (Production Expanded Indian Legal Knowledge Pipeline)
+        if indian_knowledge_pipeline:
+            if indian_knowledge_bridge:
+                is_foreign, redirect_resp = indian_knowledge_bridge.check_foreign_law_query(req.content)
+                if is_foreign:
+                    words = redirect_resp.split(" ")
+                    current_text = ""
+                    for i, word in enumerate(words):
+                        current_text += (word if i == 0 else " " + word)
+                        token_payload = {"token": current_text}
+                        yield f"event: token\ndata: {json.dumps(token_payload)}\n\n"
+                        await asyncio.sleep(0.012)
+
+                    complete_payload = {
+                        "id": f"msg-{int(time.time() * 1000)}",
+                        "role": "assistant",
+                        "timestamp": time.strftime("%I:%M %p"),
+                        "content": redirect_resp,
+                        "query_type": "LEGAL_QUERY",
+                        "type": "legal",
+                        "reliability": "supported",
+                        "reliabilityLabel": "Foreign-Law Scope Redirection",
+                        "sources": [],
+                        "citations": [],
+                        "requires_verification": False,
+                        "confidence_status": "OUT_OF_SCOPE_FOREIGN_LAW",
+                        "evidence_status": "OUT_OF_SCOPE_FOREIGN_LAW",
+                        "generation_time_sec": round(time.time() - t0, 3)
+                    }
+                    yield f"event: complete\ndata: {json.dumps(complete_payload)}\n\n"
+                    return
+
+            indian_rag_res = await asyncio.to_thread(
+                indian_knowledge_pipeline.query,
+                question=req.content,
+                incident_date=req.effective_date,
+                conversation_history=req.history
+            )
+
+            full_answer = indian_rag_res.get("answer", "")
+            if has_greeting_prefix(req.content) and not full_answer.startswith("Absolutely!") and not full_answer.startswith("Hey"):
+                full_answer = f"Absolutely! 👋\n\n{full_answer}"
+
+            words = full_answer.split(" ")
+            current_text = ""
+            for i, word in enumerate(words):
+                current_text += (word if i == 0 else " " + word)
+                token_payload = {"token": current_text}
+                yield f"event: token\ndata: {json.dumps(token_payload)}\n\n"
+                await asyncio.sleep(0.012)
+
+            sources = [
+                {
+                    "chunk_id": s["chunk_id"],
+                    "act_name": s["title"],
+                    "section_number": s["citation"],
+                    "section_title": s["citation"],
+                    "reference": s["citation"],
+                    "content": "",
+                    "source_url": s["source_url"],
+                    "similarity_score": s["score"],
+                    "source_type": s["document_type"],
+                    "hierarchy": s["authority_tier"],
+                    "temporal_status": s["temporal_status"]
+                }
+                for s in indian_rag_res.get("sources", [])
+            ]
+
+            abstained = indian_rag_res.get("abstained", False)
+            temporal_status = indian_rag_res.get("temporal_status", "UNKNOWN")
+            evidence_status = indian_rag_res.get("evidence_status", "STATUTORY_AUTHORITY" if not abstained else "INSUFFICIENT_RETRIEVAL")
+            confidence_status = indian_rag_res.get("confidence_status", "HIGH" if not abstained else "INSUFFICIENT_RETRIEVAL")
+
+            if abstained:
+                rel = "verify"
+                rel_label = "Verification Required"
+                requires_verification = True
+            elif temporal_status == "STRUCK_DOWN":
+                rel = "verify"
+                rel_label = "Judicially Struck Down"
+                requires_verification = True
+            else:
+                rel = "supported"
+                rel_label = "Verified Indian Legal Authority"
+                requires_verification = False
+
+            sq = indian_rag_res.get("structured_query", {})
+            complete_payload = {
+                "id": f"msg-{int(time.time() * 1000)}",
+                "request_id": f"req-{int(time.time() * 1000)}",
+                "role": "assistant",
+                "timestamp": time.strftime("%I:%M %p"),
+                "content": full_answer,
+                "query_type": "LEGAL_QUERY",
+                "route": "LEGAL_QUERY",
+                "type": "legal",
+                "reliability": rel,
+                "reliabilityLabel": rel_label,
+                "sources": sources,
+                "citations": [s["reference"] for s in sources],
+                "requires_verification": requires_verification,
+                "confidence_status": confidence_status,
+                "evidence_status": evidence_status,
+                "generation_time_sec": round(time.time() - t0, 3),
+                "intent": route_result.intent.value,
+                "sub_intent": getattr(route_result, "sub_intent", "LEGAL_QUERY"),
+                "legal_intent_confidence": getattr(route_result, "legal_intent_confidence", 0.95),
+                "case_intent_confidence": getattr(route_result, "case_intent_confidence", 0.0),
+                "resolved_act": sq.get("act") or sq.get("unindexed_act_name"),
+                "provision_type": sq.get("provision_type"),
+                "provision_number": sq.get("provision_number"),
+                "retrieval_mode": indian_rag_res.get("retrieval_mode", "LEGAL_RAG"),
+                "retrieval_candidate_count": len(sources),
+                "accepted_source_count": len(sources),
+                "source_count": len(sources),
+                "adapter": indian_rag_res.get("adapter", "outputs/qwen14b-legalai-v2" if indian_rag_res.get("qwen_invoked") else None),
+                "qwen_invoked": indian_rag_res.get("qwen_invoked", False),
+                "abstained": abstained
+            }
+            yield f"event: complete\ndata: {json.dumps(complete_payload)}\n\n"
+            return
+
         rag_result = await asyncio.to_thread(
             pipeline.answer_question,
             question=req.content,
@@ -903,9 +1618,11 @@ async def ai_chat_stream(req: AIChatRequest):
         )
 
         full_answer = rag_result.get("answer", "")
+        if has_greeting_prefix(req.content) and not full_answer.startswith("Absolutely!") and not full_answer.startswith("Hey"):
+            full_answer = f"Absolutely! 👋\n\n{full_answer}"
+
         words = full_answer.split(" ")
 
-        # Stream accumulated tokens to frontend
         current_text = ""
         for i, word in enumerate(words):
             current_text += (word if i == 0 else " " + word)
@@ -913,16 +1630,17 @@ async def ai_chat_stream(req: AIChatRequest):
             yield f"event: token\ndata: {json.dumps(token_payload)}\n\n"
             await asyncio.sleep(0.015)
 
-        # Send completion event with full verified metadata
         rel, rel_label = map_reliability(rag_result)
         sources = format_sources(rag_result.get("retrieved_sources", []))
 
         complete_payload = {
             "id": f"msg-{int(time.time() * 1000)}",
+            "request_id": f"req-{int(time.time() * 1000)}",
             "role": "assistant",
             "timestamp": time.strftime("%I:%M %p"),
             "content": full_answer,
             "query_type": "LEGAL_QUERY",
+            "route": "LEGAL_QUERY",
             "type": "legal",
             "reliability": rel,
             "reliabilityLabel": rel_label,
@@ -931,7 +1649,21 @@ async def ai_chat_stream(req: AIChatRequest):
             "requires_verification": (rel == "verify"),
             "confidence_status": rag_result.get("confidence_status", ""),
             "evidence_status": rag_result.get("evidence_status", ""),
-            "generation_time_sec": rag_result.get("generation_time_sec", 0.0)
+            "generation_time_sec": rag_result.get("generation_time_sec", 0.0),
+            "intent": route_result.intent.value,
+            "sub_intent": getattr(route_result, "sub_intent", "LEGAL_QUERY"),
+            "legal_intent_confidence": getattr(route_result, "legal_intent_confidence", 0.95),
+            "case_intent_confidence": getattr(route_result, "case_intent_confidence", 0.0),
+            "resolved_act": req.act_filter,
+            "provision_type": None,
+            "provision_number": req.section_filter,
+            "retrieval_mode": "LEGAL_RAG_FALLBACK",
+            "retrieval_candidate_count": len(sources),
+            "accepted_source_count": len(sources),
+            "source_count": len(sources),
+            "adapter": "outputs/qwen14b-legalai-v2",
+            "qwen_invoked": True if sources else False,
+            "abstained": (rel == "verify")
         }
         yield f"event: complete\ndata: {json.dumps(complete_payload)}\n\n"
 

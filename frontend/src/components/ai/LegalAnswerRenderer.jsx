@@ -2,12 +2,16 @@
  * LegalAnswerRenderer.jsx
  * 
  * Professional Lawyer-Oriented Legal AI Answer Presentation Component.
- * Transforms raw RAG outputs into structured legal synthesis:
- * - Clear statutory hierarchy (Summary, Applicable Provision, Key Points, Analysis)
+ * Transforms raw RAG outputs into structured, clear, and beautiful legal reports:
+ * - Eliminates raw markdown artifacts (no stray '**', '##', or unparsed links)
+ * - Resolves 'undefined' titles in statutory provision banners
+ * - Renders dedicated, rich Statutory Authority Showcase Cards for Indian statutes
+ * - Formats legislative clauses (sub-sections, clauses (a)/(b)) with legal indentation
+ * - Renders executive section headings (FACTS, ANALYSIS, EVIDENCE GAPS, NEXT STEPS, SUMMARY)
  * - Calibrated reliability badges (Supported, Limited, Requires Verification)
  * - Distinct Out-of-Corpus & Temporal Law advisory notices
- * - Structured expandable source cards & verified citations
- * - Safe native React Markdown parsing (no dangerouslySetInnerHTML)
+ * - Expandable authoritative source cards & verified repository citations
+ * - Native React rendering (zero dangerouslySetInnerHTML)
  */
 
 import React, { useState } from 'react';
@@ -24,42 +28,83 @@ import {
   Copy, 
   Check, 
   ShieldAlert,
-  ExternalLink
+  ExternalLink,
+  Layers,
+  Sparkles
 } from 'lucide-react';
 
 /**
- * Safe inline Markdown parser for bold, italic, code, and text spans.
+ * Cleans stray asterisks or broken markdown formatting marks.
+ */
+function cleanStrayAsterisks(text) {
+  if (!text) return '';
+  return text.replace(/\*\*/g, '');
+}
+
+/**
+ * Safe inline Markdown parser for links, bold, italic, code, and text spans.
  */
 function renderInlineText(text) {
   if (!text) return null;
 
-  // Split by inline formatting tokens: **bold**, *italic*, `code`
+  // Split by links [label](url), bold **text**, italic *text*, code `code`
+  const tokenRegex = /(\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
   const parts = [];
-  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
   let lastIndex = 0;
   let match;
 
-  while ((match = regex.exec(text)) !== null) {
+  while ((match = tokenRegex.exec(text)) !== null) {
     if (match.index > lastIndex) {
-      parts.push(text.substring(lastIndex, match.index));
+      parts.push(cleanStrayAsterisks(text.substring(lastIndex, match.index)));
     }
     const token = match[0];
-    if (token.startsWith('**') && token.endsWith('**')) {
+
+    if (token.startsWith('[') && token.includes('](') && token.endsWith(')')) {
+      const linkMatch = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (linkMatch) {
+        const [, label, url] = linkMatch;
+        parts.push(
+          <a
+            key={`link-${match.index}`}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: 'var(--color-accent-700)',
+              textDecoration: 'underline',
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '3px',
+              wordBreak: 'break-all'
+            }}
+          >
+            <span>{label}</span>
+            <ExternalLink size={10} style={{ opacity: 0.8, flexShrink: 0 }} />
+          </a>
+        );
+      } else {
+        parts.push(cleanStrayAsterisks(token));
+      }
+    } else if (token.startsWith('**') && token.endsWith('**')) {
+      const boldText = token.slice(2, -2).trim();
       parts.push(
-        <strong key={match.index} style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>
-          {token.slice(2, -2)}
+        <strong key={`bold-${match.index}`} style={{ fontWeight: 650, color: 'var(--color-ink-900)' }}>
+          {boldText}
         </strong>
       );
     } else if (token.startsWith('*') && token.endsWith('*')) {
+      const italicText = token.slice(1, -1).trim();
       parts.push(
-        <em key={match.index} style={{ fontStyle: 'italic', color: 'var(--color-text-secondary)' }}>
-          {token.slice(1, -1)}
+        <em key={`italic-${match.index}`} style={{ fontStyle: 'italic', color: 'var(--color-text-secondary)' }}>
+          {italicText}
         </em>
       );
     } else if (token.startsWith('`') && token.endsWith('`')) {
+      const codeText = token.slice(1, -1);
       parts.push(
         <code
-          key={match.index}
+          key={`code-${match.index}`}
           style={{
             fontFamily: 'var(--font-mono)',
             fontSize: '0.85em',
@@ -70,117 +115,404 @@ function renderInlineText(text) {
             color: 'var(--color-ink-900)'
           }}
         >
-          {token.slice(1, -1)}
+          {codeText}
         </code>
       );
     }
-    lastIndex = regex.lastIndex;
+    lastIndex = tokenRegex.lastIndex;
   }
 
   if (lastIndex < text.length) {
-    parts.push(text.substring(lastIndex));
+    parts.push(cleanStrayAsterisks(text.substring(lastIndex)));
   }
 
-  return parts.length > 0 ? parts : text;
+  return parts.length > 0 ? parts : cleanStrayAsterisks(text);
 }
 
 /**
- * Parses raw text into semantic legal sections.
+ * Dedicated Showcase Card for Cited Indian Statutory Authorities.
  */
-function parseLegalContent(rawContent) {
-  if (!rawContent) {
-    return {
-      title: null,
-      summary: '',
-      applicableProvision: null,
-      keyPoints: [],
-      analysis: '',
-      caveats: null,
-      paragraphs: []
-    };
-  }
+const StatutoryAuthorityCard = ({ authorityData }) => {
+  const {
+    title,
+    breadcrumb,
+    legislativeText,
+    type,
+    hierarchy,
+    temporalStatus,
+    officialSource
+  } = authorityData;
 
-  // Strip leading headers like "### Legal Answer:", "### Answer:", etc.
-  let cleaned = rawContent
+  const [expanded, setExpanded] = useState(true);
+
+  // Format legislative text lines (e.g. sub-clauses (1), (a), etc.)
+  const lines = (legislativeText || '').split('\n').map(l => l.trim()).filter(Boolean);
+
+  return (
+    <div
+      style={{
+        marginTop: '12px',
+        marginBottom: '14px',
+        backgroundColor: 'var(--color-bg-surface)',
+        borderRadius: 'var(--radius-md, 8px)',
+        border: '1px solid var(--color-border-subtle)',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+        overflow: 'hidden'
+      }}
+    >
+      {/* Authority Card Header */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '10px 14px',
+          backgroundColor: 'var(--color-bg-surface-sunken)',
+          borderBottom: '1px solid var(--color-border-subtle)',
+          cursor: 'pointer'
+        }}
+        onClick={() => setExpanded(prev => !prev)}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              width: '24px',
+              height: '24px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'var(--color-accent-100)',
+              color: 'var(--color-accent-700)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}
+          >
+            <BookOpen size={13} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <h4
+              style={{
+                margin: 0,
+                fontSize: '13.5px',
+                fontWeight: 700,
+                color: 'var(--color-ink-900)',
+                lineHeight: 1.3
+              }}
+            >
+              {cleanStrayAsterisks(title)}
+            </h4>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, marginLeft: '8px' }}>
+          {type && (
+            <span
+              style={{
+                fontSize: '10px',
+                fontWeight: 600,
+                fontFamily: 'var(--font-mono)',
+                padding: '2px 6px',
+                borderRadius: 'var(--radius-xs)',
+                backgroundColor: 'var(--color-accent-100)',
+                color: 'var(--color-accent-700)',
+                textTransform: 'uppercase'
+              }}
+            >
+              {type}
+            </span>
+          )}
+          {expanded ? <ChevronUp size={14} style={{ color: 'var(--color-text-muted)' }} /> : <ChevronDown size={14} style={{ color: 'var(--color-text-muted)' }} />}
+        </div>
+      </div>
+
+      {/* Authority Content */}
+      {expanded && (
+        <div style={{ padding: '12px 14px' }}>
+          {/* Breadcrumb citation if present */}
+          {breadcrumb && (
+            <div
+              style={{
+                fontSize: '11px',
+                color: 'var(--color-text-muted)',
+                backgroundColor: 'var(--color-bg-canvas)',
+                padding: '4px 8px',
+                borderRadius: 'var(--radius-sm)',
+                marginBottom: '10px',
+                borderLeft: '2px solid var(--color-ink-500)',
+                lineHeight: 1.4
+              }}
+            >
+              {cleanStrayAsterisks(breadcrumb.replace(/^\[|\]$/g, ''))}
+            </div>
+          )}
+
+          {/* Statutory Legislative Text */}
+          {lines.length > 0 && (
+            <div
+              style={{
+                fontSize: '13px',
+                color: 'var(--color-text-primary)',
+                lineHeight: 1.6,
+                backgroundColor: 'var(--color-bg-canvas)',
+                padding: '10px 12px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--color-border-subtle)',
+                marginBottom: '10px'
+              }}
+            >
+              {lines.map((line, idx) => {
+                const isClause = /^(\([0-9a-z]+\)|\d+\.)/i.test(line);
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      paddingLeft: isClause ? '16px' : '0',
+                      marginBottom: idx < lines.length - 1 ? '6px' : 0,
+                      fontWeight: isClause ? 450 : 400
+                    }}
+                  >
+                    {renderInlineText(line)}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Statutory Metadata & Source Pill Bar */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '8px',
+              paddingTop: '8px',
+              borderTop: '1px dashed var(--color-border-subtle)',
+              fontSize: '11px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              {hierarchy && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '2px 6px',
+                    borderRadius: 'var(--radius-xs)',
+                    backgroundColor: 'var(--color-bg-surface-sunken)',
+                    color: 'var(--color-ink-700)',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 600,
+                    fontSize: '10px'
+                  }}
+                >
+                  <Scale size={10} />
+                  {hierarchy.replace(/_/g, ' ')}
+                </span>
+              )}
+              {temporalStatus && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '2px 6px',
+                    borderRadius: 'var(--radius-xs)',
+                    backgroundColor: 'var(--color-success-wash)',
+                    color: 'var(--color-success-text)',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 600,
+                    fontSize: '10px'
+                  }}
+                >
+                  <CheckCircle2 size={10} />
+                  {temporalStatus}
+                </span>
+              )}
+            </div>
+
+            {officialSource && (
+              <a
+                href={officialSource}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  color: 'var(--color-accent-700)',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                  fontSize: '11px',
+                  padding: '2px 6px',
+                  borderRadius: 'var(--radius-xs)',
+                  backgroundColor: 'var(--color-accent-100)'
+                }}
+              >
+                <span>IndiaCode Official Record</span>
+                <ExternalLink size={10} />
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Parses raw text into semantic blocks:
+ * - Headings (##, ###)
+ * - Authority Cards (Sections with metadata)
+ * - Key Lists (- or numbered)
+ * - Standard text paragraphs
+ */
+function parseContentBlocks(rawContent) {
+  if (!rawContent) return [];
+
+  // Normalize line breaks and strip leading meta-prompts
+  let cleaned = (rawContent || '')
+    .replace(/\r\n/g, '\n')
     .replace(/^###\s*(Legal Answer|Legal Response|Answer|Response):?\s*/i, '')
     .trim();
 
-  // Check for Out of Corpus condition
-  const isOutOfCorpus = 
-    cleaned.toLowerCase().includes('insufficient authoritative source coverage') ||
-    cleaned.toLowerCase().includes('outside the current legalai statutory database');
+  // Split by markdown ### section blocks
+  const rawSections = cleaned.split(/(?=^###\s+)/m);
+  const blocks = [];
 
-  // Check for Temporal Law condition
-  const isTemporal = 
-    cleaned.toLowerCase().includes('article 20(1)') ||
-    cleaned.toLowerCase().includes('cannot be applied retrospectively') ||
-    cleaned.toLowerCase().includes('temporal transition') ||
-    cleaned.toLowerCase().includes('substantive criminal liability: strictly governed by the indian penal code');
+  for (const chunk of rawSections) {
+    const trimmedChunk = chunk.trim();
+    if (!trimmedChunk) continue;
 
-  // Separate paragraphs
-  const rawParagraphs = cleaned
-    .split(/\n\s*\n/)
-    .map(p => p.trim())
-    .filter(Boolean);
+    // Check if this chunk is a Statutory Authority block with metadata
+    const isStatutorySection = 
+      trimmedChunk.startsWith('###') && 
+      (trimmedChunk.includes('Authority:') || 
+       trimmedChunk.includes('IndiaCode') || 
+       trimmedChunk.includes('Official Source:') ||
+       trimmedChunk.includes('TIER_1_PRIMARY') ||
+       trimmedChunk.includes('ACT (CENTRAL)'));
 
-  // If already structured with numbered items (e.g. "1. ...", "(a) ...", etc.)
-  const keyPoints = [];
-  const bodyParagraphs = [];
+    if (isStatutorySection) {
+      const lines = trimmedChunk.split('\n');
+      const titleLine = lines[0].replace(/^###\s+/, '').replace(/\*\*/g, '').trim();
 
-  for (const para of rawParagraphs) {
-    // Check if paragraph contains conditions or numbered list
-    const listMatch = para.match(/^(\d+\.|\([a-z]\)|\([0-9]+\))\s*(.*)/);
-    if (listMatch) {
-      keyPoints.push({
-        num: listMatch[1],
-        text: listMatch[2]
-      });
-    } else if (para.includes('(a)') && para.includes('(b)')) {
-      // Split inline conditions like "(a) ... (b) ... (c) ..."
-      const subParts = para.split(/(\([a-z]\)\s*)/).filter(Boolean);
-      let intro = '';
-      for (let i = 0; i < subParts.length; i++) {
-        if (/^\([a-z]\)\s*$/.test(subParts[i]) && i + 1 < subParts.length) {
-          keyPoints.push({
-            num: subParts[i].trim(),
-            text: subParts[i + 1].trim().replace(/[;,]\s*$/, '')
-          });
-          i++; // Skip content part
-        } else if (keyPoints.length === 0) {
-          intro += subParts[i];
+      let breadcrumb = null;
+      let legislativeLines = [];
+      let type = 'ACT (CENTRAL)';
+      let hierarchy = 'TIER_1_PRIMARY';
+      let temporalStatus = 'CURRENT';
+      let officialSource = null;
+
+      let mode = 'legislative'; // 'legislative' or 'metadata'
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        const cleanLine = line.replace(/\*\*/g, '').trim();
+
+        if (line.startsWith('[') && line.endsWith(']') && line.includes('|')) {
+          breadcrumb = line;
+          continue;
+        }
+
+        if (cleanLine.startsWith('Authority:')) {
+          mode = 'metadata';
+          continue;
+        }
+
+        if (mode === 'metadata') {
+          if (cleanLine.startsWith('- Type:') || cleanLine.startsWith('Type:')) {
+            type = cleanLine.replace(/^-?\s*Type:\s*/, '').trim();
+          } else if (cleanLine.startsWith('- Hierarchy:') || cleanLine.startsWith('Hierarchy:')) {
+            hierarchy = cleanLine.replace(/^-?\s*Hierarchy:\s*/, '').trim();
+          } else if (cleanLine.startsWith('- Temporal Status:') || cleanLine.startsWith('Temporal Status:')) {
+            temporalStatus = cleanLine.replace(/^-?\s*Temporal Status:\s*/, '').trim();
+          } else if (cleanLine.includes('Official Source:') || cleanLine.includes('IndiaCode') || cleanLine.includes('http')) {
+            const urlMatch = line.match(/https?:\/\/[^\s)\]]+/);
+            if (urlMatch) {
+              officialSource = urlMatch[0];
+            }
+          }
+        } else {
+          if (cleanLine !== 'IndiaCode') {
+            legislativeLines.push(line);
+          }
         }
       }
-      if (intro.trim()) {
-        bodyParagraphs.push(intro.trim());
-      }
+
+      blocks.push({
+        type: 'statutory_authority',
+        data: {
+          title: titleLine,
+          breadcrumb,
+          legislativeText: legislativeLines.join('\n'),
+          type,
+          hierarchy,
+          temporalStatus,
+          officialSource
+        }
+      });
     } else {
-      bodyParagraphs.push(para);
+      // General markdown content: split by lines or paragraphs
+      const paragraphs = trimmedChunk.split(/\n\s*\n/);
+
+      for (const para of paragraphs) {
+        const pTrimmed = para.trim();
+        if (!pTrimmed) continue;
+
+        // Level 2 Heading: ## Heading or Capitalized section titles
+        if (/^##\s+/.test(pTrimmed)) {
+          const headingText = pTrimmed.replace(/^##\s+/, '').trim();
+          blocks.push({
+            type: 'heading_2',
+            text: headingText
+          });
+        }
+        // Capitalized section headers like "FACTS", "ANALYSIS", "EVIDENCE GAPS:", "NEXT STEPS"
+        else if (/^(FACTS|ANALYSIS|EVIDENCE GAPS|NEXT STEPS|SUMMARY|PROCEDURAL POSTURE):?$/i.test(pTrimmed)) {
+          blocks.push({
+            type: 'heading_2',
+            text: pTrimmed.replace(/:$/, '')
+          });
+        }
+        // Level 3 Heading: ### Heading
+        else if (/^###\s+/.test(pTrimmed)) {
+          const headingText = pTrimmed.replace(/^###\s+/, '').trim();
+          blocks.push({
+            type: 'heading_3',
+            text: headingText
+          });
+        }
+        // Bullet List: lines starting with - , * , •
+        else if (pTrimmed.split('\n').some(l => /^\s*[-*•]\s+/.test(l))) {
+          const listItems = pTrimmed
+            .split('\n')
+            .map(l => l.replace(/^\s*[-*•]\s+/, '').trim())
+            .filter(Boolean);
+
+          blocks.push({
+            type: 'bullet_list',
+            items: listItems
+          });
+        }
+        // Standard Paragraph
+        else {
+          blocks.push({
+            type: 'paragraph',
+            text: pTrimmed
+          });
+        }
+      }
     }
   }
 
-  // Extract Summary: first substantive sentence or paragraph
-  let summary = '';
-  let analysis = '';
-
-  if (bodyParagraphs.length > 0) {
-    summary = bodyParagraphs[0];
-    if (bodyParagraphs.length > 1) {
-      analysis = bodyParagraphs.slice(1).join('\n\n');
-    }
-  }
-
-  return {
-    isOutOfCorpus,
-    isTemporal,
-    summary,
-    keyPoints,
-    analysis,
-    rawText: cleaned
-  };
+  return blocks;
 }
 
 export const LegalAnswerRenderer = ({
-  message,
+  message = {},
   isStreaming = false,
   compact = false
 }) => {
@@ -199,20 +531,59 @@ export const LegalAnswerRenderer = ({
     timestamp
   } = message;
 
-  const parsed = parseLegalContent(content);
-  const isOutOfCorpus = parsed.isOutOfCorpus || evidence_status === 'OUT_OF_CORPUS';
-  const isTemporal = parsed.isTemporal || confidence_status === 'TEMPORAL_TRANSITION_APPLIED';
+  // Clean and parse content blocks
+  const blocks = parseContentBlocks(content);
 
-  // Conversational response check
+  // Check special advisory conditions
+  const lowerContent = (content || '').toLowerCase();
+  const isOutOfCorpus = 
+    evidence_status === 'OUT_OF_CORPUS' ||
+    lowerContent.includes('insufficient authoritative source coverage') ||
+    lowerContent.includes('outside the current legalai statutory database');
+
+  const isTemporal = 
+    confidence_status === 'TEMPORAL_TRANSITION_APPLIED' ||
+    lowerContent.includes('article 20(1)') ||
+    lowerContent.includes('cannot be applied retrospectively') ||
+    lowerContent.includes('temporal transition') ||
+    lowerContent.includes('substantive criminal liability: strictly governed by the indian penal code');
+
+  // Conversational / Scope boundary check
   const isConversational = 
     message.type === 'conversational' || 
+    message.type === 'general' || 
     message.query_type === 'CONVERSATIONAL' || 
+    message.query_type === 'OUT_OF_SCOPE' || 
+    message.query_type === 'GENERAL_NON_LEGAL' || 
+    message.query_type === 'AMBIGUOUS' || 
     confidence_status === 'CONVERSATIONAL' || 
-    (sources.length === 0 && citations.length === 0 && !isOutOfCorpus && !isTemporal);
+    confidence_status === 'OUT_OF_SCOPE' || 
+    confidence_status === 'GENERAL_NON_LEGAL' || 
+    confidence_status === 'AMBIGUOUS' || 
+    (sources.length === 0 && citations.length === 0 && !isOutOfCorpus && !isTemporal && !content.includes('Section'));
 
-  // Handle Copy
+  // Clean Applicable Title without ANY "undefined"
+  const primarySource = (sources && sources.length > 0) ? sources[0] : null;
+  let applicableTitle = null;
+  if (primarySource) {
+    const rawTitle = primarySource.title && primarySource.title !== 'undefined' ? primarySource.title.trim() : '';
+    const rawRef = primarySource.reference && primarySource.reference !== 'undefined' ? primarySource.reference.trim() : '';
+    if (rawTitle && rawRef && rawTitle !== rawRef) {
+      applicableTitle = `${rawTitle} — ${rawRef}`;
+    } else {
+      applicableTitle = rawRef || rawTitle || primarySource.statute || 'Primary Statutory Authority';
+    }
+  } else if (isTemporal) {
+    applicableTitle = 'Indian Penal Code, 1860 vs. Bharatiya Nyaya Sanhita, 2023';
+  } else if (isOutOfCorpus) {
+    applicableTitle = 'Outside Indexed Corpus (Negotiable Instruments / Special Acts)';
+  }
+
+  // Handle Copy Synthesis
   const handleCopy = () => {
-    navigator.clipboard.writeText(content);
+    // Strip raw formatting artifacts for clean clipboard text
+    const cleanClipboard = content.replace(/\*\*/g, '').replace(/###\s*/g, '');
+    navigator.clipboard.writeText(cleanClipboard);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -220,7 +591,7 @@ export const LegalAnswerRenderer = ({
   // Badge mapping
   const badgeConfig = {
     supported: {
-      label: reliabilityLabel || 'Supported by sources',
+      label: reliabilityLabel || 'Verified Indian Legal Authority',
       icon: <CheckCircle2 size={13} style={{ color: 'var(--color-success-text)' }} />,
       bg: 'var(--color-success-wash)',
       color: 'var(--color-success-text)',
@@ -243,16 +614,6 @@ export const LegalAnswerRenderer = ({
   };
 
   const badge = badgeConfig[reliability] || badgeConfig.supported;
-
-  // Primary applicable provision detection from sources
-  const primarySource = sources.length > 0 ? sources[0] : null;
-  const applicableTitle = primarySource 
-    ? `${primarySource.title} — ${primarySource.reference}`
-    : isTemporal 
-      ? 'Indian Penal Code, 1860 vs. Bharatiya Nyaya Sanhita, 2023'
-      : isOutOfCorpus
-        ? 'Outside Indexed Corpus (Negotiable Instruments / Special Acts)'
-        : null;
 
   return (
     <div
@@ -283,20 +644,20 @@ export const LegalAnswerRenderer = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div
             style={{
-              width: '20px',
-              height: '20px',
+              width: '22px',
+              height: '22px',
               borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'var(--color-ai-100)',
-              color: 'var(--color-ai-500)',
+              backgroundColor: 'var(--color-ink-900)',
+              color: 'var(--color-accent-100)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              border: '1px solid var(--color-ai-border)'
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
             }}
           >
-            <Scale size={12} />
+            <Scale size={13} />
           </div>
-          <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--color-ink-700)' }}>
+          <span style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--color-ink-900)' }}>
             Legal AI Synthesizer
           </span>
           {timestamp && (
@@ -306,20 +667,20 @@ export const LegalAnswerRenderer = ({
           )}
         </div>
 
-        {/* Reliability Pill Badge (Only for verified legal responses) */}
+        {/* Reliability Pill Badge */}
         {!isStreaming && !isConversational && (
           <div
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '5px',
-              padding: '2px 8px',
+              gap: '6px',
+              padding: '3px 10px',
               borderRadius: 'var(--radius-full, 9999px)',
               backgroundColor: badge.bg,
               border: `1px solid ${badge.border}`,
               color: badge.color,
               fontSize: '11px',
-              fontWeight: 600
+              fontWeight: 650
             }}
           >
             {badge.icon}
@@ -330,15 +691,15 @@ export const LegalAnswerRenderer = ({
 
       {/* 2. Streaming View with Blinking Cursor */}
       {isStreaming && (
-        <div style={{ whiteSpace: 'pre-line', color: 'var(--color-text-primary)' }}>
+        <div style={{ whiteSpace: 'pre-line', color: 'var(--color-text-primary)', lineHeight: 1.65 }}>
           {renderInlineText(content)}
           <span
             style={{
               display: 'inline-block',
               width: '2px',
               height: '14px',
-              backgroundColor: 'var(--color-ai-500)',
-              marginLeft: '2px',
+              backgroundColor: 'var(--color-accent-700)',
+              marginLeft: '3px',
               verticalAlign: 'text-bottom',
               animation: 'blink 1s step-start infinite'
             }}
@@ -359,12 +720,12 @@ export const LegalAnswerRenderer = ({
             gap: '8px'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-warning-text)', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-warning-text)', fontWeight: 650, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             <ShieldAlert size={15} />
             <span>Legal Coverage Advisory — Out of Corpus</span>
           </div>
           <div style={{ fontSize: 'var(--text-body)', color: 'var(--color-ink-900)', lineHeight: 1.55 }}>
-            {renderInlineText(parsed.rawText)}
+            {renderInlineText(content)}
           </div>
           <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', paddingTop: '4px', borderTop: '1px dashed var(--color-warning-border)' }}>
             <strong>Authoritative Indexed Coverage:</strong> Bharatiya Nyaya Sanhita, 2023 • Bharatiya Nagarik Suraksha Sanhita, 2023 • Bharatiya Sakshya Adhiniyam, 2023.
@@ -385,7 +746,7 @@ export const LegalAnswerRenderer = ({
             gap: '6px'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-information-text)', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-information-text)', fontWeight: 650, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             <Clock size={15} />
             <span>Temporal Law Transition Applied (Article 20(1))</span>
           </div>
@@ -395,22 +756,17 @@ export const LegalAnswerRenderer = ({
         </div>
       )}
 
-      {/* 5. Main Content: Clean Chatbot view for Conversational, or Structured Legal Synthesis */}
+      {/* 5. Main Structured Legal Synthesis */}
       {!isStreaming && !isOutOfCorpus && (
-        isConversational ? (
-          <div style={{ fontSize: 'var(--text-body-lg)', color: 'var(--color-text-primary)', lineHeight: 1.65, whiteSpace: 'pre-line' }}>
-            {renderInlineText(content)}
-          </div>
-        ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-          {/* Applicable Provision Banner */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {/* Applicable Statutory Provision Banner (Without "undefined") */}
           {applicableTitle && (
             <div
               style={{
-                padding: '8px 12px',
+                padding: '9px 12px',
                 borderRadius: 'var(--radius-sm)',
                 backgroundColor: 'var(--color-bg-surface-sunken)',
-                borderLeft: '3px solid var(--color-ink-700)',
+                borderLeft: '3px solid var(--color-ink-900)',
                 display: 'flex',
                 alignItems: 'baseline',
                 justifyContent: 'space-between',
@@ -421,94 +777,137 @@ export const LegalAnswerRenderer = ({
                 <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
                   Applicable Statutory Provision
                 </span>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-ink-900)' }}>
-                  {applicableTitle}
+                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-ink-900)', marginTop: '2px' }}>
+                  {cleanStrayAsterisks(applicableTitle)}
                 </span>
               </div>
               {primarySource?.type && (
-                <span style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--color-accent-700)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+                <span style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--color-accent-700)', fontWeight: 650, fontFamily: 'var(--font-mono)' }}>
                   {primarySource.type}
                 </span>
               )}
             </div>
           )}
 
-          {/* Section: SUMMARY */}
-          {parsed.summary && (
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '4px' }}>
-                Summary
-              </div>
-              <div style={{ fontSize: 'var(--text-body-lg)', color: 'var(--color-text-primary)', lineHeight: 1.6 }}>
-                {renderInlineText(parsed.summary)}
-              </div>
-            </div>
-          )}
+          {/* Render Parsed Blocks */}
+          {blocks.map((block, idx) => {
+            if (block.type === 'statutory_authority') {
+              return <StatutoryAuthorityCard key={idx} authorityData={block.data} />;
+            }
 
-          {/* Section: KEY POINTS / STATUTORY REQUIREMENTS */}
-          {parsed.keyPoints.length > 0 && (
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '6px' }}>
-                Key Points & Statutory Conditions
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {parsed.keyPoints.map((item, idx) => (
-                  <div
-                    key={idx}
+            if (block.type === 'heading_2') {
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginTop: idx > 0 ? '14px' : '4px',
+                    marginBottom: '4px',
+                    paddingBottom: '4px',
+                    borderBottom: '1px solid var(--color-border-subtle)'
+                  }}
+                >
+                  <div style={{ width: '4px', height: '14px', backgroundColor: 'var(--color-ink-700)', borderRadius: '2px' }} />
+                  <h3
                     style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: '8px',
-                      padding: '6px 10px',
-                      backgroundColor: 'var(--color-bg-surface)',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--color-border-subtle)',
-                      fontSize: 'var(--text-body)'
+                      margin: 0,
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      color: 'var(--color-ink-900)',
+                      letterSpacing: '0.02em',
+                      textTransform: 'uppercase'
                     }}
                   >
-                    <span
+                    {cleanStrayAsterisks(block.text)}
+                  </h3>
+                </div>
+              );
+            }
+
+            if (block.type === 'heading_3') {
+              return (
+                <h4
+                  key={idx}
+                  style={{
+                    margin: '10px 0 4px 0',
+                    fontSize: '13.5px',
+                    fontWeight: 700,
+                    color: 'var(--color-ink-900)'
+                  }}
+                >
+                  {cleanStrayAsterisks(block.text)}
+                </h4>
+              );
+            }
+
+            if (block.type === 'bullet_list') {
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                    margin: '4px 0 8px 0'
+                  }}
+                >
+                  {block.items.map((item, itemIdx) => (
+                    <div
+                      key={itemIdx}
                       style={{
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        color: 'var(--color-ai-500)',
-                        minWidth: '20px',
-                        paddingTop: '2px'
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '8px',
+                        fontSize: 'var(--text-body)',
+                        lineHeight: 1.55
                       }}
                     >
-                      {item.num}
-                    </span>
-                    <div style={{ color: 'var(--color-text-primary)', lineHeight: 1.5 }}>
-                      {renderInlineText(item.text)}
+                      <span
+                        style={{
+                          width: '5px',
+                          height: '5px',
+                          borderRadius: '50%',
+                          backgroundColor: 'var(--color-accent-700)',
+                          marginTop: '8px',
+                          flexShrink: 0
+                        }}
+                      />
+                      <div style={{ color: 'var(--color-text-primary)' }}>
+                        {renderInlineText(item)}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+                  ))}
+                </div>
+              );
+            }
 
-          {/* Section: ANALYSIS / ADDITIONAL APPLICATION */}
-          {parsed.analysis && (
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '4px' }}>
-                Legal Analysis & Procedural Application
+            // Standard Paragraph
+            return (
+              <div
+                key={idx}
+                style={{
+                  fontSize: 'var(--text-body)',
+                  color: 'var(--color-text-primary)',
+                  lineHeight: 1.65,
+                  margin: '2px 0'
+                }}
+              >
+                {renderInlineText(block.text)}
               </div>
-              <div style={{ fontSize: 'var(--text-body)', color: 'var(--color-text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
-                {renderInlineText(parsed.analysis)}
-              </div>
-            </div>
-          )}
+            );
+          })}
         </div>
-        )
       )}
 
       {/* 6. Authoritative Sources Used Strip & Cards */}
       {!isStreaming && sources && sources.length > 0 && (
         <div
           style={{
-            marginTop: 'var(--space-xs)',
-            paddingTop: 'var(--space-xs)',
-            borderTop: '1px solid var(--color-ai-border)'
+            marginTop: '8px',
+            paddingTop: '8px',
+            borderTop: '1px solid var(--color-border-subtle)'
           }}
         >
           <button
@@ -516,53 +915,60 @@ export const LegalAnswerRenderer = ({
             style={{
               background: 'none',
               border: 'none',
-              color: 'var(--color-text-link)',
-              fontSize: 'var(--text-caption)',
+              color: 'var(--color-accent-700)',
+              fontSize: '11px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '5px',
-              fontWeight: 600,
+              fontWeight: 650,
               padding: '2px 0'
             }}
           >
             <BookOpen size={13} />
-            <span>{sources.length} Authoritative {sources.length === 1 ? 'Source' : 'Sources'} Used</span>
+            <span>{sources.length} Authoritative {sources.length === 1 ? 'Source' : 'Sources'} Consulted</span>
             {sourcesExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
 
           {/* Expandable Source Cards */}
           {sourcesExpanded && (
             <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {sources.map((src, idx) => (
-                <div
-                  key={src.id || idx}
-                  style={{
-                    padding: '8px 12px',
-                    backgroundColor: 'var(--color-bg-surface)',
-                    borderRadius: 'var(--radius-sm)',
-                    borderLeft: `3px solid ${badge.border}`,
-                    borderTop: '1px solid var(--color-border-subtle)',
-                    borderRight: '1px solid var(--color-border-subtle)',
-                    borderBottom: '1px solid var(--color-border-subtle)',
-                    fontSize: 'var(--text-caption)'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                    <div style={{ fontWeight: 600, color: 'var(--color-ink-900)' }}>
-                      {src.title}
+              {sources.map((src, idx) => {
+                const srcTitle = src.title && src.title !== 'undefined' ? src.title : (src.reference || 'Statutory Source');
+                const srcRef = src.reference && src.reference !== 'undefined' && src.reference !== srcTitle ? src.reference : '';
+
+                return (
+                  <div
+                    key={src.id || idx}
+                    style={{
+                      padding: '8px 12px',
+                      backgroundColor: 'var(--color-bg-surface)',
+                      borderRadius: 'var(--radius-sm)',
+                      borderLeft: `3px solid var(--color-accent-500)`,
+                      borderTop: '1px solid var(--color-border-subtle)',
+                      borderRight: '1px solid var(--color-border-subtle)',
+                      borderBottom: '1px solid var(--color-border-subtle)',
+                      fontSize: 'var(--text-caption)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px' }}>
+                      <div style={{ fontWeight: 650, color: 'var(--color-ink-900)' }}>
+                        {srcTitle}
+                      </div>
+                      {srcRef && (
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 600, color: 'var(--color-accent-700)', flexShrink: 0 }}>
+                          {srcRef}
+                        </span>
+                      )}
                     </div>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 600, color: 'var(--color-accent-700)' }}>
-                      {src.reference}
-                    </span>
+                    {src.excerpt && (
+                      <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '4px', fontStyle: 'italic', lineHeight: 1.45 }}>
+                        "{src.excerpt}"
+                      </div>
+                    )}
                   </div>
-                  {src.excerpt && (
-                    <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '4px', fontStyle: 'italic', lineHeight: 1.45 }}>
-                      "{src.excerpt}"
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

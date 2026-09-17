@@ -43,11 +43,26 @@ import { timelineService } from './services/timelineService';
 import { calendarService } from './services/calendarService';
 import { billingService } from './services/billingService';
 import { draftingService } from './services/draftingService';
+import { authService } from './services/authService';
+import { AuthState } from './types/authTypes';
+import { AlertCircle } from 'lucide-react';
+import { CompleteAdvocateVerificationModal } from './components/auth/CompleteAdvocateVerificationModal';
 
 export function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [authSnapshot, setAuthSnapshot] = useState(authService.getSnapshot());
   const [activeView, setActiveView] = useState('dashboard'); // 'dashboard' | 'cases' | 'case-detail' | 'calendar' | 'ai' | 'drafting' | 'editor' | 'billing' | 'settings'
   const [themeMode, setThemeMode] = useState('light'); // 'light' | 'dark' | 'system'
+  const [isCompleteVerificationOpen, setIsCompleteVerificationOpen] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = authService.subscribe((snapshot) => {
+      setAuthSnapshot(snapshot);
+      if (snapshot.profile) {
+        setCurrentUser(snapshot.profile);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
   
   // App-level data state
   const [cases, setCases] = useState(INITIAL_CASES);
@@ -228,8 +243,103 @@ export function App() {
     setIsAddExpenseOpen(true);
   };
 
-  if (!isAuthenticated) {
-    return <LoginScreen onLoginSuccess={() => setIsAuthenticated(true)} />;
+  if (authSnapshot.authState === AuthState.INITIALIZING) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--color-bg-canvas)' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px' }}>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 3H15L20 8V21H4V3Z" stroke="var(--color-ink-700)" strokeWidth="2" strokeLinejoin="round" />
+            <path d="M15 3V8H20" stroke="var(--color-accent-500)" strokeWidth="2" strokeLinejoin="round" />
+          </svg>
+          <span style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', fontWeight: 600, color: 'var(--color-ink-700)' }}>
+            Legal AI
+          </span>
+        </div>
+        <p style={{ marginTop: '12px', fontSize: 'var(--text-caption)', color: 'var(--color-text-secondary)' }}>
+          Establishing secure chambers session...
+        </p>
+      </div>
+    );
+  }
+
+  if (authSnapshot.authState === AuthState.UNAUTHENTICATED || authSnapshot.authState === AuthState.TWO_FACTOR_REQUIRED) {
+    return <LoginScreen onLoginSuccess={() => {}} />;
+  }
+
+  if (
+    authSnapshot.authState === AuthState.PROFESSIONAL_VERIFICATION_PENDING ||
+    authSnapshot.authState === AuthState.PROFESSIONAL_VERIFICATION_REVIEW ||
+    authSnapshot.authState === AuthState.PROFESSIONAL_VERIFICATION_FAILED
+  ) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--color-bg-canvas)', padding: 'var(--space-md)' }}>
+        <div style={{ width: '100%', maxWidth: '480px', backgroundColor: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-xl)', padding: 'var(--space-xl)', boxShadow: 'var(--elevation-2)', textAlign: 'center' }}>
+          <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'var(--color-warning-wash)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 'var(--space-md)' }}>
+            <AlertCircle size={28} color="var(--color-warning-text)" />
+          </div>
+          <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-h2)', color: 'var(--color-ink-700)', marginBottom: 'var(--space-xs)' }}>
+            Professional Verification Required
+          </h2>
+          <p style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-lg)' }}>
+            LegalAI is restricted to verified legal practitioners. Your identity has been authenticated, but your advocate credentials are currently{' '}
+            <strong>{authSnapshot.profile?.verification_status || 'PENDING'}</strong>.
+          </p>
+
+          <div style={{ backgroundColor: 'var(--color-bg-surface-sunken)', borderRadius: 'var(--radius-md)', padding: 'var(--space-sm) var(--space-md)', textAlign: 'left', marginBottom: 'var(--space-lg)', fontSize: 'var(--text-caption)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+              <span style={{ color: 'var(--color-text-secondary)' }}>Account Email:</span>
+              <span style={{ fontWeight: 500 }}>{authSnapshot.currentUser?.email || authSnapshot.profile?.email}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+              <span style={{ color: 'var(--color-text-secondary)' }}>State Bar Roll:</span>
+              <span style={{ fontWeight: 500 }}>{authSnapshot.profile?.state_bar_council || 'Pending submission'}</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 'var(--space-sm)', justifyContent: 'center' }}>
+            <button
+              onClick={() => setIsCompleteVerificationOpen(true)}
+              style={{
+                padding: '10px 18px',
+                borderRadius: 'var(--radius-md)',
+                border: 'none',
+                backgroundColor: 'var(--color-accent-500)',
+                color: '#FFFFFF',
+                cursor: 'pointer',
+                fontSize: 'var(--text-caption)',
+                fontWeight: 600
+              }}
+            >
+              Verify Advocate Credentials →
+            </button>
+            <button
+              onClick={() => authService.logout()}
+              style={{
+                padding: '10px 16px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--color-border-default)',
+                backgroundColor: 'transparent',
+                color: 'var(--color-text-secondary)',
+                cursor: 'pointer',
+                fontSize: 'var(--text-caption)',
+                fontWeight: 500
+              }}
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+
+        {isCompleteVerificationOpen && (
+          <CompleteAdvocateVerificationModal
+            currentUser={authSnapshot.currentUser}
+            profile={authSnapshot.profile}
+            onClose={() => setIsCompleteVerificationOpen(false)}
+            onComplete={() => setIsCompleteVerificationOpen(false)}
+          />
+        )}
+      </div>
+    );
   }
 
   // Selected case finances for CaseDetailView
@@ -247,7 +357,7 @@ export function App() {
         themeMode={themeMode}
         onThemeChange={(m) => setThemeMode(m)}
         currentUser={currentUser}
-        onLogout={() => setIsAuthenticated(false)}
+        onLogout={() => authService.logout()}
       />
 
       {/* 2. Main Page View Content */}
@@ -275,6 +385,7 @@ export function App() {
         {activeView === 'case-detail' && selectedCase && (
           <CaseDetailView
             currentCase={selectedCase}
+            allCases={cases}
             documents={documents}
             timelineEvents={timelineEvents}
             drafts={drafts}
@@ -310,7 +421,8 @@ export function App() {
             }}
           >
             <AIAssistantView
-              initialMode="GENERAL"
+              initialMode={selectedCase ? "SINGLE_CASE" : "GENERAL"}
+              lockedCase={selectedCase}
               allCases={cases}
             />
           </div>
@@ -357,7 +469,7 @@ export function App() {
             currentUser={currentUser}
             themeMode={themeMode}
             onThemeChange={(m) => setThemeMode(m)}
-            onLogout={() => setIsAuthenticated(false)}
+            onLogout={() => authService.logout()}
             onUpdateUserSettings={(newSet) => setCurrentUser(prev => ({ ...prev, ...newSet }))}
           />
         )}
