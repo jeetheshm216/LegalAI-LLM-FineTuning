@@ -124,9 +124,9 @@
   --easing-decelerate: cubic-bezier(0.0, 0.0, 0.0, 1.0);
 
   /* Layout */
-  --header-height: 60px;
+  --header-height: 64px;
   --ai-panel-docked-width: 420px;
-  --max-content-width: 1180px;
+  --max-content-width: 1680px;
 
   /* Z-Index */
   --z-base: 0;

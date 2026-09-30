@@ -4,12 +4,21 @@ import { Button } from '../common/Button';
 import { Sparkles, ArrowRight, ArrowLeft, CheckSquare, Square as SquareOutline, FileText } from 'lucide-react';
 import { DRAFT_CATEGORIES } from '../../mock/mockDrafting';
 
-export const NewDraftModal = ({ isOpen, onClose, onDraftCreated, cases = [] }) => {
-  const [step, setStep] = useState(1); // 1: Select Case, 2: Select Document Type, 3: Context & AI Instructions
+export const NewDraftModal = ({ isOpen, onClose, onDraftCreated, cases = [], targetCase = null }) => {
+  const [step, setStep] = useState(targetCase ? 2 : 1); // 1: Select Case, 2: Select Document Type, 3: Context & AI Instructions
   
-  const [selectedCaseId, setSelectedCaseId] = useState(cases[0]?.id || 'case-01');
+  const [selectedCaseId, setSelectedCaseId] = useState(targetCase?.id || cases[0]?.id || 'case-01');
   const [selectedDocType, setSelectedDocType] = useState('Legal Notice');
   const [draftTitle, setDraftTitle] = useState('');
+
+  React.useEffect(() => {
+    if (targetCase) {
+      setSelectedCaseId(targetCase.id);
+      setStep(2);
+    } else {
+      setStep(1);
+    }
+  }, [targetCase, isOpen]);
   
   // AI Context selections (§ Step 3)
   const [contextSettings, setContextSettings] = useState({

@@ -12,13 +12,12 @@ function getApiBaseUrl() {
   if (!envUrl || envUrl.trim() === '') {
     return '';
   }
-  // If envUrl points to localhost/127.0.0.1, but client browser is accessing via a LAN IP or domain
-  // (e.g. 192.168.x.x, domain.com), do NOT route to client's own localhost. Route through relative path ('')
-  // which uses Vite's proxy directly to the backend.
-  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
-    const isLocalEnv = envUrl.includes('localhost') || envUrl.includes('127.0.0.1');
-    const isRemoteClient = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-    if (isLocalEnv && isRemoteClient) {
+  // When running in a browser, if envUrl points to localhost or 127.0.0.1,
+  // return '' (relative path) so requests use the same host & port (e.g. Vite on 5173),
+  // which proxies /api to port 8008 on the host. This prevents 'Failed to fetch'
+  // when port 8008 is not forwarded or directly accessible from the client machine.
+  if (typeof window !== 'undefined') {
+    if (envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {
       return '';
     }
   }
@@ -139,6 +138,8 @@ export const apiClient = {
     }
 
     let isCompleted = false;
+    let accumulatedToken = '';
+    let lastCompletePayload = null;
 
     try {
       const response = await fetch(url, {
@@ -156,6 +157,42 @@ export const apiClient = {
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
       let buffer = '';
+      let currentEvent = 'message';
+      let currentData = '';
+
+      const processLine = (line) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          // Empty line indicates dispatch of current event block
+          if (currentData) {
+            try {
+              const parsed = JSON.parse(currentData);
+              if (currentEvent === 'token') {
+                if (parsed.token !== undefined) {
+                  accumulatedToken = parsed.token;
+                  onToken?.(parsed.token);
+                }
+              } else if (currentEvent === 'complete') {
+                isCompleted = true;
+                lastCompletePayload = parsed;
+                onComplete?.(parsed);
+              }
+            } catch (jsonErr) {
+              console.warn('Failed to parse SSE payload:', currentData);
+            }
+          }
+          currentEvent = 'message';
+          currentData = '';
+          return;
+        }
+
+        if (trimmed.startsWith('event:')) {
+          currentEvent = trimmed.slice(6).trim();
+        } else if (trimmed.startsWith('data:')) {
+          const lineData = trimmed.slice(5).trim();
+          currentData = currentData ? (currentData + '\n' + lineData) : lineData;
+        }
+      };
 
       while (true) {
         let readResult;
@@ -163,45 +200,50 @@ export const apiClient = {
           readResult = await reader.read();
         } catch (streamErr) {
           if (isCompleted) {
-            return; // Stream closed normally after complete payload
+            return;
           }
           throw streamErr;
         }
 
         const { value, done } = readResult;
-        if (done) break;
+        if (done) {
+          // Flush any remaining buffer when stream finishes
+          if (buffer.trim()) {
+            const finalLines = buffer.split('\n');
+            for (const fl of finalLines) {
+              processLine(fl);
+            }
+            processLine(''); // Dispatch final event if pending
+          } else if (currentData) {
+            processLine(''); // Dispatch final pending data
+          }
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
-        buffer = lines.pop(); // Retain incomplete line
-
-        let currentEvent = 'message';
+        buffer = lines.pop() || ''; // Retain incomplete line
 
         for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-
-          if (trimmed.startsWith('event:')) {
-            currentEvent = trimmed.slice(6).trim();
-          } else if (trimmed.startsWith('data:')) {
-            const rawData = trimmed.slice(5).trim();
-            try {
-              const parsed = JSON.parse(rawData);
-              if (currentEvent === 'token') {
-                if (parsed.token !== undefined) {
-                  onToken?.(parsed.token);
-                }
-              } else if (currentEvent === 'complete') {
-                isCompleted = true;
-                onComplete?.(parsed);
-                try { await reader.cancel(); } catch {}
-                return;
-              }
-            } catch (jsonErr) {
-              console.warn('Failed to parse SSE payload:', rawData);
-            }
+          processLine(line);
+          if (isCompleted) {
+            try { await reader.cancel(); } catch {}
+            return;
           }
         }
+      }
+
+      // Stream closed by server normally. Ensure completion is triggered!
+      if (!isCompleted) {
+        isCompleted = true;
+        onComplete?.(lastCompletePayload || {
+          id: `msg-${Date.now()}`,
+          role: 'assistant',
+          content: accumulatedToken,
+          reliability: 'supported',
+          reliabilityLabel: 'Completed',
+          query_type: 'GENERATION_COMPLETE'
+        });
       }
     } catch (err) {
       if (err.name === 'AbortError' || isCompleted) {

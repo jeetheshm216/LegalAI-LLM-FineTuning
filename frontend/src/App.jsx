@@ -6,6 +6,7 @@ import { CaseListView } from './components/cases/CaseListView';
 import { CaseDetailView } from './components/case-detail/CaseDetailView';
 import { CalendarView } from './components/calendar/CalendarView';
 import { AIAssistantView } from './components/ai/AIAssistantView';
+import { CourtroomSimulationView } from './components/courtroom/CourtroomSimulationView';
 import { SettingsView } from './components/settings/SettingsView';
 import { AddCaseModal } from './components/cases/AddCaseModal';
 
@@ -147,6 +148,9 @@ export function App() {
   };
 
   const handleStartAIChat = (promptText) => {
+    if (promptText && typeof promptText === 'string') {
+      sessionStorage.setItem('courtroom_ai_prompt', promptText);
+    }
     setActiveView('ai');
   };
 
@@ -411,21 +415,31 @@ export function App() {
 
         {activeView === 'ai' && (
           <div
-            className="container"
             style={{
-              padding: 'var(--space-md)',
-              height: 'calc(100vh - var(--header-height))',
+              width: '100%',
+              height: 'calc(100vh - var(--header-height, 60px))',
               display: 'flex',
               flexDirection: 'column',
-              boxSizing: 'border-box'
+              boxSizing: 'border-box',
+              padding: 0,
+              margin: 0,
+              overflow: 'hidden'
             }}
           >
             <AIAssistantView
-              initialMode={selectedCase ? "SINGLE_CASE" : "GENERAL"}
-              lockedCase={selectedCase}
+              initialMode="GENERAL"
+              lockedCase={null}
               allCases={cases}
             />
           </div>
+        )}
+
+        {activeView === 'courtroom' && (
+          <CourtroomSimulationView 
+            globalTheme={themeMode}
+            onNavigate={(v) => setActiveView(v)}
+            onStartAIChat={handleStartAIChat}
+          />
         )}
 
         {/* 3. Legal Drafting Studio */}
@@ -488,6 +502,7 @@ export function App() {
         onClose={() => setIsNewDraftOpen(false)}
         onDraftCreated={handleDraftCreated}
         cases={cases}
+        targetCase={draftTargetCase}
       />
 
       {/* Case-anchored: Create Invoice */}

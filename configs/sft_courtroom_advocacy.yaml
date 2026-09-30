@@ -1,0 +1,59 @@
+# configs/sft_courtroom_advocacy.yaml
+# LegalAI Courtroom Advocacy SFT Training Configuration on NVIDIA B200 (Device 2)
+# Base Model: Qwen/Qwen2.5-14B-Instruct
+
+model:
+  model_name_or_path: "Qwen/Qwen2.5-14B-Instruct"
+  trust_remote_code: false
+  torch_dtype: "bfloat16"
+  use_cache: false
+
+data:
+  train_file: "data/courtroom_real_advocacy_train.jsonl"
+  validation_file: "data/courtroom_real_advocacy_val.jsonl"
+  max_seq_length: 2048
+
+lora:
+  r: 32
+  lora_alpha: 64
+  lora_dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  bias: "none"
+  task_type: "CAUSAL_LM"
+
+training:
+  output_dir: "outputs/qwen14b-courtroom-advocacy"
+  num_train_epochs: 2
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 4
+  learning_rate: 0.0002
+  lr_scheduler_type: "cosine"
+  warmup_steps: 10
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  logging_steps: 5
+  save_strategy: "steps"
+  save_steps: 100
+  save_total_limit: 1
+  eval_strategy: "steps"
+  eval_steps: 100
+  load_best_model_at_end: false
+  seed: 42
+
+hardware:
+  bf16: true
+  fp16: false
+  gradient_checkpointing: true
+  dataloader_num_workers: 2
+
+logging:
+  logging_steps: 5
+  report_to: "none"

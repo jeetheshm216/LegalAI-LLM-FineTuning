@@ -2,16 +2,14 @@
  * LegalAnswerRenderer.jsx
  * 
  * Professional Lawyer-Oriented Legal AI Answer Presentation Component.
- * Transforms raw RAG outputs into structured, clear, and beautiful legal reports:
- * - Eliminates raw markdown artifacts (no stray '**', '##', or unparsed links)
- * - Resolves 'undefined' titles in statutory provision banners
- * - Renders dedicated, rich Statutory Authority Showcase Cards for Indian statutes
- * - Formats legislative clauses (sub-sections, clauses (a)/(b)) with legal indentation
- * - Renders executive section headings (FACTS, ANALYSIS, EVIDENCE GAPS, NEXT STEPS, SUMMARY)
- * - Calibrated reliability badges (Supported, Limited, Requires Verification)
- * - Distinct Out-of-Corpus & Temporal Law advisory notices
- * - Expandable authoritative source cards & verified repository citations
- * - Native React rendering (zero dangerouslySetInnerHTML)
+ * Transforms raw RAG outputs into structured, clear, and visually rich legal reports:
+ * - Dynamic Mixed Formats: Plain-English Takeaways, Visual Procedural Flowcharts,
+ *   Essential Ingredients, Practical Courtroom Realities, and Comparison Tables.
+ * - Dedicated Visual Roadmap container for ASCII/text procedural flowcharts.
+ * - Native Markdown Table rendering for statutory concordance and legal matrices.
+ * - Isolates statutory citations at the bottom so legal analysis is never swallowed.
+ * - Distinct executive section badges for effortless skimming by advocates.
+ * - Official IndiaCode records and authoritative source cards.
  */
 
 import React, { useState } from 'react';
@@ -30,7 +28,10 @@ import {
   ShieldAlert,
   ExternalLink,
   Layers,
-  Sparkles
+  Sparkles,
+  GitFork,
+  Table as TableIcon,
+  HelpCircle
 } from 'lucide-react';
 
 /**
@@ -143,7 +144,7 @@ const StatutoryAuthorityCard = ({ authorityData }) => {
     officialSource
   } = authorityData;
 
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   // Format legislative text lines (e.g. sub-clauses (1), (a), etc.)
   const lines = (legislativeText || '').split('\n').map(l => l.trim()).filter(Boolean);
@@ -152,7 +153,7 @@ const StatutoryAuthorityCard = ({ authorityData }) => {
     <div
       style={{
         marginTop: '12px',
-        marginBottom: '14px',
+        marginBottom: '10px',
         backgroundColor: 'var(--color-bg-surface)',
         borderRadius: 'var(--radius-md, 8px)',
         border: '1px solid var(--color-border-subtle)',
@@ -168,7 +169,7 @@ const StatutoryAuthorityCard = ({ authorityData }) => {
           justifyContent: 'space-between',
           padding: '10px 14px',
           backgroundColor: 'var(--color-bg-surface-sunken)',
-          borderBottom: '1px solid var(--color-border-subtle)',
+          borderBottom: expanded ? '1px solid var(--color-border-subtle)' : 'none',
           cursor: 'pointer'
         }}
         onClick={() => setExpanded(prev => !prev)}
@@ -193,7 +194,7 @@ const StatutoryAuthorityCard = ({ authorityData }) => {
             <h4
               style={{
                 margin: 0,
-                fontSize: '13.5px',
+                fontSize: '13px',
                 fontWeight: 700,
                 color: 'var(--color-ink-900)',
                 lineHeight: 1.3
@@ -209,7 +210,7 @@ const StatutoryAuthorityCard = ({ authorityData }) => {
             <span
               style={{
                 fontSize: '10px',
-                fontWeight: 600,
+                fontWeight: 650,
                 fontFamily: 'var(--font-mono)',
                 padding: '2px 6px',
                 borderRadius: 'var(--radius-xs)',
@@ -250,7 +251,7 @@ const StatutoryAuthorityCard = ({ authorityData }) => {
           {lines.length > 0 && (
             <div
               style={{
-                fontSize: '13px',
+                fontSize: '12.5px',
                 color: 'var(--color-text-primary)',
                 lineHeight: 1.6,
                 backgroundColor: 'var(--color-bg-canvas)',
@@ -362,40 +363,601 @@ const StatutoryAuthorityCard = ({ authorityData }) => {
 };
 
 /**
- * Parses raw text into semantic blocks:
- * - Headings (##, ###)
- * - Authority Cards (Sections with metadata)
- * - Key Lists (- or numbered)
- * - Standard text paragraphs
+ * Dedicated Visual Roadmap & Flowchart Renderer.
+ * High-contrast, clean, responsive visualization for procedural legal workflows.
+ */
+const VisualFlowchartBlock = ({ code }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div
+      style={{
+        margin: '14px 0',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        border: '1px solid rgba(59, 130, 246, 0.35)',
+        backgroundColor: '#0a0f1d',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)'
+      }}
+    >
+      {/* Top Banner */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '8px 14px',
+          backgroundColor: '#111827',
+          borderBottom: '1px solid #1f2937'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div
+            style={{
+              width: '20px',
+              height: '20px',
+              borderRadius: '4px',
+              backgroundColor: 'rgba(56, 189, 248, 0.15)',
+              color: '#38bdf8',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <GitFork size={13} />
+          </div>
+          <span
+            style={{
+              fontSize: '11.5px',
+              fontWeight: 700,
+              color: '#f1f5f9',
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase'
+            }}
+          >
+            Visual Legal Roadmap & Procedural Flowchart
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleCopy}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: copied ? '#4ade80' : '#94a3b8',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontSize: '11px',
+            padding: '2px 8px',
+            borderRadius: '4px',
+            backgroundColor: 'rgba(255, 255, 255, 0.05)'
+          }}
+        >
+          {copied ? <Check size={12} /> : <Copy size={12} />}
+          <span>{copied ? 'Copied' : 'Copy Flowchart'}</span>
+        </button>
+      </div>
+
+      {/* Flowchart Monospace Canvas */}
+      <pre
+        style={{
+          margin: 0,
+          padding: '16px 18px',
+          overflowX: 'auto',
+          whiteSpace: 'pre',
+          fontFamily: "'Fira Code', 'Cascadia Code', 'Consolas', 'Courier New', monospace",
+          fontSize: '12.5px',
+          lineHeight: '1.65',
+          color: '#38bdf8',
+          letterSpacing: '0.02em'
+        }}
+      >
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+};
+
+/**
+ * Dedicated Code Block Renderer for standard code/text.
+ */
+const CodeBlock = ({ language, code }) => {
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  const handleCopyCode = (e) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(code);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  return (
+    <div
+      style={{
+        margin: '12px 0',
+        borderRadius: 'var(--radius-md, 6px)',
+        overflow: 'hidden',
+        border: '1px solid var(--color-border-subtle)',
+        backgroundColor: '#0f172a',
+        color: '#f8fafc',
+        fontFamily: 'var(--font-mono, monospace)',
+        fontSize: '12px',
+        lineHeight: 1.5
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '6px 12px',
+          backgroundColor: '#1e293b',
+          borderBottom: '1px solid #334155',
+          fontSize: '11px',
+          color: '#94a3b8',
+          textTransform: 'uppercase',
+          fontWeight: 600,
+          letterSpacing: '0.05em'
+        }}
+      >
+        <span>{language || 'TEXT'}</span>
+        <button
+          type="button"
+          onClick={handleCopyCode}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: copiedCode ? '#4ade80' : '#cbd5e1',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontSize: '11px',
+            padding: '2px 6px',
+            borderRadius: '4px'
+          }}
+        >
+          {copiedCode ? <Check size={12} /> : <Copy size={12} />}
+          <span>{copiedCode ? 'Copied' : 'Copy'}</span>
+        </button>
+      </div>
+      <pre
+        style={{
+          margin: 0,
+          padding: '12px',
+          overflowX: 'auto',
+          whiteSpace: 'pre',
+          fontFamily: 'inherit'
+        }}
+      >
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+};
+
+/**
+ * Dedicated Markdown Table Renderer for legal concordance and comparison matrices.
+ */
+const MarkdownTable = ({ headers, rows }) => {
+  return (
+    <div
+      style={{
+        margin: '14px 0',
+        borderRadius: '8px',
+        border: '1px solid var(--color-border-subtle)',
+        overflowX: 'auto',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+      }}
+    >
+      <table
+        style={{
+          width: '100%',
+          borderCollapse: 'collapse',
+          fontSize: '13px',
+          textAlign: 'left'
+        }}
+      >
+        <thead>
+          <tr
+            style={{
+              backgroundColor: 'var(--color-bg-surface-sunken)',
+              borderBottom: '2px solid var(--color-border-subtle)'
+            }}
+          >
+            {headers.map((h, i) => (
+              <th
+                key={i}
+                style={{
+                  padding: '9px 12px',
+                  fontWeight: 700,
+                  color: 'var(--color-ink-900)',
+                  fontSize: '12px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.03em'
+                }}
+              >
+                {renderInlineText(h)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, rIdx) => (
+            <tr
+              key={rIdx}
+              style={{
+                borderBottom: rIdx < rows.length - 1 ? '1px solid var(--color-border-subtle)' : 'none',
+                backgroundColor: rIdx % 2 === 0 ? 'var(--color-bg-surface)' : 'var(--color-bg-canvas)'
+              }}
+            >
+              {row.map((cell, cIdx) => (
+                <td
+                  key={cIdx}
+                  style={{
+                    padding: '9px 12px',
+                    color: 'var(--color-text-primary)',
+                    lineHeight: 1.5,
+                    verticalAlign: 'top'
+                  }}
+                >
+                  {renderInlineText(cell)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+/**
+ * Section Header Badge Renderer for Executive Sections.
+ */
+const ExecutiveSectionHeader = ({ title }) => {
+  const cleanTitle = cleanStrayAsterisks(title).trim();
+  const lower = cleanTitle.toLowerCase();
+
+  let icon = <Layers size={14} />;
+  let color = 'var(--color-ink-900)';
+  let bg = 'var(--color-bg-surface-sunken)';
+
+  if (lower.includes('executive') || lower.includes('takeaway') || lower.includes('summary')) {
+    icon = <Sparkles size={14} style={{ color: 'var(--color-accent-700)' }} />;
+    color = 'var(--color-accent-700)';
+    bg = 'var(--color-accent-100)';
+  } else if (lower.includes('roadmap') || lower.includes('flowchart') || lower.includes('procedural')) {
+    icon = <GitFork size={14} style={{ color: '#38bdf8' }} />;
+    color = '#38bdf8';
+    bg = 'rgba(2, 132, 199, 0.18)';
+  } else if (lower.includes('ingredient') || lower.includes('essential') || lower.includes('elements')) {
+    icon = <CheckCircle2 size={14} style={{ color: '#34d399' }} />;
+    color = '#34d399';
+    bg = 'rgba(5, 150, 105, 0.18)';
+  } else if (lower.includes('courtroom') || lower.includes('litigation') || lower.includes('practical') || lower.includes('reality')) {
+    icon = <Scale size={14} style={{ color: '#fbbf24' }} />;
+    color = '#fbbf24';
+    bg = 'rgba(217, 119, 6, 0.18)';
+  } else if (lower.includes('concordance') || lower.includes('old law') || lower.includes('table') || lower.includes('comparison')) {
+    icon = <TableIcon size={14} style={{ color: '#2dd4bf' }} />;
+    color = '#2dd4bf';
+    bg = 'rgba(13, 148, 136, 0.18)';
+  }
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        marginTop: '16px',
+        marginBottom: '6px'
+      }}
+    >
+      <div
+        style={{
+          width: '24px',
+          height: '24px',
+          borderRadius: '4px',
+          backgroundColor: bg,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0
+        }}
+      >
+        {icon}
+      </div>
+      <h3
+        style={{
+          margin: 0,
+          fontSize: '14.5px',
+          fontWeight: 750,
+          color: 'var(--color-ink-900)',
+          letterSpacing: '0.01em'
+        }}
+      >
+        {cleanTitle}
+      </h3>
+    </div>
+  );
+};
+
+/**
+ * Sanitizes unintended raw SVG markup.
+ */
+function sanitizeUnintendedMarkup(text) {
+  if (!text) return '';
+  return text
+    .replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, '')
+    .replace(/<\/?svg[^>]*>/gi, '')
+    .replace(/^\s*svg\s*$/gmi, '')
+    .replace(/\r\n/g, '\n');
+}
+
+/**
+ * Checks if code contains visual flowchart connectors or arrows.
+ */
+function isVisualFlowchart(code, language) {
+  if (!code) return false;
+  const lang = (language || '').toLowerCase();
+  if (['flowchart', 'mermaid', 'roadmap', 'ascii', 'diagram'].includes(lang)) {
+    return true;
+  }
+  return (
+    code.includes('──►') ||
+    code.includes('──>') ||
+    code.includes('->') ||
+    code.includes('-->') ||
+    code.includes('◄──') ||
+    (code.includes('┌') && code.includes('┘')) ||
+    (code.includes('[') && code.includes(']') && (code.includes('▼') || code.includes('|')))
+  );
+}
+
+/**
+ * Checks and parses markdown table lines into headers and rows.
+ */
+function tryParseMarkdownTable(lines) {
+  if (!lines || lines.length < 2) return null;
+  const tableLines = lines.map(l => l.trim()).filter(l => l.startsWith('|') && l.endsWith('|'));
+  if (tableLines.length < 2) return null;
+
+  // Header line
+  const headerCells = tableLines[0]
+    .split('|')
+    .slice(1, -1)
+    .map(c => c.trim());
+
+  // Second line should be delimiter (e.g. |---|---|)
+  const delimiterLine = tableLines[1];
+  if (!/^\|[\s\-:]+(\|[\s\-:]+)+\|$/.test(delimiterLine)) {
+    return null;
+  }
+
+  // Row lines
+  const rows = [];
+  for (let i = 2; i < tableLines.length; i++) {
+    const cells = tableLines[i]
+      .split('|')
+      .slice(1, -1)
+      .map(c => c.trim());
+    rows.push(cells);
+  }
+
+  return { headers: headerCells, rows };
+}
+
+/**
+ * Parses raw text into structured semantic blocks.
+ * Separates legal analysis completely from statutory citation cards at the bottom.
  */
 function parseContentBlocks(rawContent) {
   if (!rawContent) return [];
 
-  // Normalize line breaks and strip leading meta-prompts
-  let cleaned = (rawContent || '')
-    .replace(/\r\n/g, '\n')
+  // Normalize line breaks and sanitize
+  let cleaned = sanitizeUnintendedMarkup(rawContent)
     .replace(/^###\s*(Legal Answer|Legal Response|Answer|Response):?\s*/i, '')
     .trim();
 
-  // Split by markdown ### section blocks
-  const rawSections = cleaned.split(/(?=^###\s+)/m);
+  // Split synthesis from authoritative reference section
+  const authorityDividerRegex = /\n(?:---\s*\n+)?##\s*Authoritative Indian Legal Authorities/i;
+  let synthesisText = cleaned;
+  let authoritiesText = '';
+
+  const dividerMatch = cleaned.match(authorityDividerRegex);
+  if (dividerMatch) {
+    synthesisText = cleaned.substring(0, dividerMatch.index).trim();
+    authoritiesText = cleaned.substring(dividerMatch.index + dividerMatch[0].length).trim();
+  }
+
   const blocks = [];
 
-  for (const chunk of rawSections) {
-    const trimmedChunk = chunk.trim();
-    if (!trimmedChunk) continue;
+  // --- Parse Main Synthesis ---
+  const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g;
+  const segments = [];
+  let lastIdx = 0;
+  let codeMatch;
 
-    // Check if this chunk is a Statutory Authority block with metadata
-    const isStatutorySection = 
-      trimmedChunk.startsWith('###') && 
-      (trimmedChunk.includes('Authority:') || 
-       trimmedChunk.includes('IndiaCode') || 
-       trimmedChunk.includes('Official Source:') ||
-       trimmedChunk.includes('TIER_1_PRIMARY') ||
-       trimmedChunk.includes('ACT (CENTRAL)'));
+  while ((codeMatch = codeBlockRegex.exec(synthesisText)) !== null) {
+    if (codeMatch.index > lastIdx) {
+      segments.push({ type: 'text', content: synthesisText.substring(lastIdx, codeMatch.index) });
+    }
+    segments.push({
+      type: 'code',
+      language: codeMatch[1] || 'text',
+      code: codeMatch[2].trimEnd()
+    });
+    lastIdx = codeBlockRegex.lastIndex;
+  }
+  if (lastIdx < synthesisText.length) {
+    segments.push({ type: 'text', content: synthesisText.substring(lastIdx) });
+  }
 
-    if (isStatutorySection) {
-      const lines = trimmedChunk.split('\n');
+  for (const seg of segments) {
+    if (seg.type === 'code') {
+      if (isVisualFlowchart(seg.code, seg.language)) {
+        blocks.push({
+          type: 'flowchart_block',
+          code: seg.code
+        });
+      } else {
+        blocks.push({
+          type: 'code_block',
+          language: seg.language,
+          code: seg.code
+        });
+      }
+      continue;
+    }
+
+    const textContent = seg.content.trim();
+    if (!textContent) continue;
+
+    // Parse paragraphs, tables, lists, and headings
+    const paragraphs = textContent.split(/\n\s*\n/);
+
+    for (const para of paragraphs) {
+      const pTrimmed = para.trim();
+      if (!pTrimmed) continue;
+
+      const lines = pTrimmed.split('\n').map(l => l.trim()).filter(Boolean);
+
+      // Check if this paragraph is a Markdown Table
+      const tableData = tryParseMarkdownTable(lines);
+      if (tableData) {
+        blocks.push({
+          type: 'table_block',
+          headers: tableData.headers,
+          rows: tableData.rows
+        });
+        continue;
+      }
+
+      let lineIdx = 0;
+      while (lineIdx < lines.length) {
+        const line = lines[lineIdx];
+
+        // Level 1 Heading: # Heading
+        if (/^#\s+/.test(line)) {
+          blocks.push({
+            type: 'heading_1',
+            text: line.replace(/^#\s+/, '').replace(/\*\*/g, '').trim()
+          });
+          lineIdx++;
+          continue;
+        }
+
+        // Level 2 Heading: ## Heading
+        if (/^##\s+/.test(line)) {
+          blocks.push({
+            type: 'heading_2',
+            text: line.replace(/^##\s+/, '').replace(/\*\*/g, '').trim()
+          });
+          lineIdx++;
+          continue;
+        }
+
+        // Level 3 Heading: ### Heading (Executive sections)
+        if (/^###\s+/.test(line)) {
+          blocks.push({
+            type: 'heading_3',
+            text: line.replace(/^###\s+/, '').replace(/\*\*/g, '').trim()
+          });
+          lineIdx++;
+          continue;
+        }
+
+        // Level 4 Heading: #### Heading
+        if (/^####\s+/.test(line)) {
+          blocks.push({
+            type: 'heading_4',
+            text: line.replace(/^####\s+/, '').replace(/\*\*/g, '').trim()
+          });
+          lineIdx++;
+          continue;
+        }
+
+        // Horizontal Divider: --- or *** or ___
+        if (/^([-*_]){3,}$/.test(line)) {
+          blocks.push({ type: 'divider' });
+          lineIdx++;
+          continue;
+        }
+
+        // Numbered List Items
+        if (/^\d+\.\s+/.test(line)) {
+          const numItems = [];
+          while (lineIdx < lines.length && /^\d+\.\s+/.test(lines[lineIdx])) {
+            numItems.push(lines[lineIdx].replace(/^\d+\.\s+/, '').trim());
+            lineIdx++;
+          }
+          blocks.push({
+            type: 'numbered_list',
+            items: numItems
+          });
+          continue;
+        }
+
+        // Bullet List Items
+        if (/^[-*•]\s+/.test(line)) {
+          const bulletItems = [];
+          while (lineIdx < lines.length && /^[-*•]\s+/.test(lines[lineIdx])) {
+            bulletItems.push(lines[lineIdx].replace(/^[-*•]\s+/, '').trim());
+            lineIdx++;
+          }
+          blocks.push({
+            type: 'bullet_list',
+            items: bulletItems
+          });
+          continue;
+        }
+
+        // Standard Paragraph
+        const proseLines = [];
+        while (
+          lineIdx < lines.length &&
+          !/^#{1,4}\s+/.test(lines[lineIdx]) &&
+          !/^\d+\.\s+/.test(lines[lineIdx]) &&
+          !/^[-*•]\s+/.test(lines[lineIdx]) &&
+          !/^([-*_]){3,}$/.test(lines[lineIdx])
+        ) {
+          proseLines.push(lines[lineIdx]);
+          lineIdx++;
+        }
+
+        if (proseLines.length > 0) {
+          blocks.push({
+            type: 'paragraph',
+            text: proseLines.join('\n')
+          });
+        }
+      }
+    }
+  }
+
+  // --- Parse Authoritative Reference Section (if any) ---
+  if (authoritiesText) {
+    blocks.push({
+      type: 'authorities_header',
+      text: 'Verified Statutory Authorities & Citations'
+    });
+
+    const authorityChunks = authoritiesText.split(/(?=\n###\s+)/).map(c => c.trim()).filter(Boolean);
+
+    for (const chunk of authorityChunks) {
+      const lines = chunk.split('\n');
       const titleLine = lines[0].replace(/^###\s+/, '').replace(/\*\*/g, '').trim();
 
       let breadcrumb = null;
@@ -405,7 +967,7 @@ function parseContentBlocks(rawContent) {
       let temporalStatus = 'CURRENT';
       let officialSource = null;
 
-      let mode = 'legislative'; // 'legislative' or 'metadata'
+      let mode = 'legislative';
 
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
@@ -454,57 +1016,6 @@ function parseContentBlocks(rawContent) {
           officialSource
         }
       });
-    } else {
-      // General markdown content: split by lines or paragraphs
-      const paragraphs = trimmedChunk.split(/\n\s*\n/);
-
-      for (const para of paragraphs) {
-        const pTrimmed = para.trim();
-        if (!pTrimmed) continue;
-
-        // Level 2 Heading: ## Heading or Capitalized section titles
-        if (/^##\s+/.test(pTrimmed)) {
-          const headingText = pTrimmed.replace(/^##\s+/, '').trim();
-          blocks.push({
-            type: 'heading_2',
-            text: headingText
-          });
-        }
-        // Capitalized section headers like "FACTS", "ANALYSIS", "EVIDENCE GAPS:", "NEXT STEPS"
-        else if (/^(FACTS|ANALYSIS|EVIDENCE GAPS|NEXT STEPS|SUMMARY|PROCEDURAL POSTURE):?$/i.test(pTrimmed)) {
-          blocks.push({
-            type: 'heading_2',
-            text: pTrimmed.replace(/:$/, '')
-          });
-        }
-        // Level 3 Heading: ### Heading
-        else if (/^###\s+/.test(pTrimmed)) {
-          const headingText = pTrimmed.replace(/^###\s+/, '').trim();
-          blocks.push({
-            type: 'heading_3',
-            text: headingText
-          });
-        }
-        // Bullet List: lines starting with - , * , •
-        else if (pTrimmed.split('\n').some(l => /^\s*[-*•]\s+/.test(l))) {
-          const listItems = pTrimmed
-            .split('\n')
-            .map(l => l.replace(/^\s*[-*•]\s+/, '').trim())
-            .filter(Boolean);
-
-          blocks.push({
-            type: 'bullet_list',
-            items: listItems
-          });
-        }
-        // Standard Paragraph
-        else {
-          blocks.push({
-            type: 'paragraph',
-            text: pTrimmed
-          });
-        }
-      }
     }
   }
 
@@ -581,7 +1092,6 @@ export const LegalAnswerRenderer = ({
 
   // Handle Copy Synthesis
   const handleCopy = () => {
-    // Strip raw formatting artifacts for clean clipboard text
     const cleanClipboard = content.replace(/\*\*/g, '').replace(/###\s*/g, '');
     navigator.clipboard.writeText(cleanClipboard);
     setCopied(true);
@@ -667,26 +1177,65 @@ export const LegalAnswerRenderer = ({
           )}
         </div>
 
-        {/* Reliability Pill Badge */}
-        {!isStreaming && !isConversational && (
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '3px 10px',
-              borderRadius: 'var(--radius-full, 9999px)',
-              backgroundColor: badge.bg,
-              border: `1px solid ${badge.border}`,
-              color: badge.color,
-              fontSize: '11px',
-              fontWeight: 650
-            }}
-          >
-            {badge.icon}
-            <span>{badge.label}</span>
-          </div>
-        )}
+        {/* Reliability Pill Badge & Copy Action on Right */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {!isStreaming && !isConversational && (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '3px 10px',
+                borderRadius: 'var(--radius-full, 9999px)',
+                backgroundColor: badge.bg,
+                border: `1px solid ${badge.border}`,
+                color: badge.color,
+                fontSize: '11px',
+                fontWeight: 650
+              }}
+            >
+              {badge.icon}
+              <span>{badge.label}</span>
+            </div>
+          )}
+
+          {!isStreaming && (
+            <button
+              onClick={handleCopy}
+              title="Copy synthesized response"
+              type="button"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '3px 9px',
+                borderRadius: 'var(--radius-sm, 6px)',
+                backgroundColor: copied ? 'var(--color-success-wash)' : 'var(--color-bg-surface-raised, #f8fafc)',
+                border: copied ? '1px solid var(--color-success-border)' : '1px solid var(--color-border-subtle)',
+                color: copied ? 'var(--color-success-text)' : 'var(--color-text-secondary)',
+                fontSize: '11.5px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => {
+                if (!copied) {
+                  e.currentTarget.style.backgroundColor = 'var(--color-bg-subtle, #f1f5f9)';
+                  e.currentTarget.style.color = 'var(--color-text-primary)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!copied) {
+                  e.currentTarget.style.backgroundColor = 'var(--color-bg-surface-raised, #f8fafc)';
+                  e.currentTarget.style.color = 'var(--color-text-secondary)';
+                }
+              }}
+            >
+              {copied ? <Check size={12} /> : <Copy size={12} />}
+              <span>{copied ? 'Copied' : 'Copy'}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 2. Streaming View with Blinking Cursor */}
@@ -758,9 +1307,9 @@ export const LegalAnswerRenderer = ({
 
       {/* 5. Main Structured Legal Synthesis */}
       {!isStreaming && !isOutOfCorpus && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {/* Applicable Statutory Provision Banner (Without "undefined") */}
-          {applicableTitle && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {/* Applicable Statutory Provision Banner */}
+          {!isConversational && applicableTitle && (
             <div
               style={{
                 padding: '9px 12px',
@@ -770,12 +1319,17 @@ export const LegalAnswerRenderer = ({
                 display: 'flex',
                 alignItems: 'baseline',
                 justifyContent: 'space-between',
-                gap: '8px'
+                gap: '8px',
+                marginBottom: '4px'
               }}
             >
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
-                  Applicable Statutory Provision
+                  {message?.query_type === 'CASE_DRAFTING' || message?.type === 'legal_drafting' ? 'Legal Pleading / Court Petition' :
+                   message?.query_type === 'CASE_QUERY' || message?.type === 'case_analysis' ? 'Case Record & Pleadings' :
+                   message?.query_type === 'TECHNICAL_AI' || message?.type === 'technical' ? 'Technical Architecture' :
+                   message?.query_type === 'GENERAL' || message?.type === 'general' ? 'Legal & Conceptual Analysis' :
+                   'Applicable Statutory Authority'}
                 </span>
                 <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-ink-900)', marginTop: '2px' }}>
                   {cleanStrayAsterisks(applicableTitle)}
@@ -791,8 +1345,86 @@ export const LegalAnswerRenderer = ({
 
           {/* Render Parsed Blocks */}
           {blocks.map((block, idx) => {
+            // Visual Procedural Flowchart Block
+            if (block.type === 'flowchart_block') {
+              return <VisualFlowchartBlock key={idx} code={block.code} />;
+            }
+
+            // Standard Code Block
+            if (block.type === 'code_block') {
+              return (
+                <CodeBlock
+                  key={idx}
+                  language={block.language}
+                  code={block.code}
+                />
+              );
+            }
+
+            // Markdown Table Block
+            if (block.type === 'table_block') {
+              return (
+                <MarkdownTable
+                  key={idx}
+                  headers={block.headers}
+                  rows={block.rows}
+                />
+              );
+            }
+
+            // Statutory Authority Showcase Card (at bottom)
             if (block.type === 'statutory_authority') {
               return <StatutoryAuthorityCard key={idx} authorityData={block.data} />;
+            }
+
+            // Authorities Section Divider Header
+            if (block.type === 'authorities_header') {
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    marginTop: '20px',
+                    paddingTop: '12px',
+                    borderTop: '2px dashed var(--color-border-subtle)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <BookOpen size={15} style={{ color: 'var(--color-accent-700)' }} />
+                  <span
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 750,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                      color: 'var(--color-ink-900)'
+                    }}
+                  >
+                    {block.text}
+                  </span>
+                </div>
+              );
+            }
+
+            // Headings
+            if (block.type === 'heading_1') {
+              return (
+                <h2
+                  key={idx}
+                  style={{
+                    margin: idx > 0 ? '20px 0 10px 0' : '6px 0 10px 0',
+                    fontSize: '16px',
+                    fontWeight: 800,
+                    color: 'var(--color-ink-900)',
+                    letterSpacing: '0.02em',
+                    borderBottom: '2px solid var(--color-ink-900)',
+                    paddingBottom: '6px'
+                  }}
+                >
+                  {cleanStrayAsterisks(block.text)}
+                </h2>
+              );
             }
 
             if (block.type === 'heading_2') {
@@ -803,8 +1435,8 @@ export const LegalAnswerRenderer = ({
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
-                    marginTop: idx > 0 ? '14px' : '4px',
-                    marginBottom: '4px',
+                    marginTop: idx > 0 ? '16px' : '6px',
+                    marginBottom: '6px',
                     paddingBottom: '4px',
                     borderBottom: '1px solid var(--color-border-subtle)'
                   }}
@@ -826,19 +1458,87 @@ export const LegalAnswerRenderer = ({
               );
             }
 
+            // Executive Section Headings (Level 3)
             if (block.type === 'heading_3') {
+              return <ExecutiveSectionHeader key={idx} title={block.text} />;
+            }
+
+            if (block.type === 'heading_4') {
               return (
-                <h4
+                <h5
                   key={idx}
                   style={{
-                    margin: '10px 0 4px 0',
-                    fontSize: '13.5px',
+                    margin: '12px 0 4px 0',
+                    fontSize: '13px',
                     fontWeight: 700,
-                    color: 'var(--color-ink-900)'
+                    color: 'var(--color-ink-900)',
+                    letterSpacing: '0.02em'
                   }}
                 >
                   {cleanStrayAsterisks(block.text)}
-                </h4>
+                </h5>
+              );
+            }
+
+            if (block.type === 'divider') {
+              return (
+                <hr
+                  key={idx}
+                  style={{
+                    margin: '12px 0',
+                    border: 'none',
+                    borderTop: '1px solid var(--color-border-subtle)'
+                  }}
+                />
+              );
+            }
+
+            if (block.type === 'numbered_list') {
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                    margin: '4px 0 8px 0'
+                  }}
+                >
+                  {block.items.map((item, itemIdx) => (
+                    <div
+                      key={itemIdx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '8px',
+                        fontSize: 'var(--text-body)',
+                        lineHeight: 1.55
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          fontSize: '11px',
+                          color: 'var(--color-accent-700)',
+                          backgroundColor: 'var(--color-accent-100)',
+                          borderRadius: '50%',
+                          width: '18px',
+                          height: '18px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          marginTop: '3px'
+                        }}
+                      >
+                        {itemIdx + 1}
+                      </span>
+                      <div style={{ color: 'var(--color-text-primary)' }}>
+                        {renderInlineText(item)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               );
             }
 
@@ -891,7 +1591,8 @@ export const LegalAnswerRenderer = ({
                   fontSize: 'var(--text-body)',
                   color: 'var(--color-text-primary)',
                   lineHeight: 1.65,
-                  margin: '2px 0'
+                  margin: '4px 0',
+                  whiteSpace: 'pre-wrap'
                 }}
               >
                 {renderInlineText(block.text)}
@@ -1021,40 +1722,6 @@ export const LegalAnswerRenderer = ({
         </div>
       )}
 
-      {/* 8. Quick Actions Toolbar */}
-      {!isStreaming && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-md)',
-            marginTop: '6px',
-            paddingTop: '6px',
-            borderTop: '1px solid var(--color-border-subtle)',
-            fontSize: '11px',
-            color: 'var(--color-text-muted)'
-          }}
-        >
-          <button
-            onClick={handleCopy}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: copied ? 'var(--color-success-text)' : 'var(--color-text-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '11px',
-              padding: '2px 4px',
-              borderRadius: 'var(--radius-xs)'
-            }}
-          >
-            {copied ? <Check size={12} /> : <Copy size={12} />}
-            <span>{copied ? 'Copied' : 'Copy Synthesis'}</span>
-          </button>
-        </div>
-      )}
     </div>
   );
 };

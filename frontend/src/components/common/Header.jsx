@@ -10,7 +10,13 @@ import {
   User, 
   Shield, 
   LogOut,
-  FolderLock
+  LayoutDashboard,
+  Briefcase,
+  Calendar,
+  Sparkles,
+  FileEdit,
+  Receipt,
+  Scale
 } from 'lucide-react';
 
 export const Header = ({ 
@@ -37,12 +43,13 @@ export const Header = ({
   }, []);
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'cases', label: 'Cases' },
-    { id: 'calendar', label: 'Calendar' },
-    { id: 'ai', label: 'AI Assistant' },
-    { id: 'drafting', label: 'Drafting' },
-    { id: 'billing', label: 'Billing' }
+    { id: 'dashboard', label: 'Dashboard', shortLabel: 'Dashboard', icon: LayoutDashboard },
+    { id: 'cases', label: 'Matters & Cases', shortLabel: 'Cases', icon: Briefcase },
+    { id: 'calendar', label: 'Calendar', shortLabel: 'Calendar', icon: Calendar },
+    { id: 'ai', label: 'LegalChat', shortLabel: 'LegalChat', icon: Sparkles, badge: 'AI' },
+    { id: 'courtroom', label: 'Courtroom Simulator', shortLabel: 'Courtroom', icon: Scale, badge: 'Live' },
+    { id: 'drafting', label: 'Drafting Studio', shortLabel: 'Drafting', icon: FileEdit },
+    { id: 'billing', label: 'Billing & Ledger', shortLabel: 'Billing', icon: Receipt }
   ];
 
   const cycleTheme = () => {
@@ -54,363 +61,449 @@ export const Header = ({
   return (
     <header
       style={{
-        height: 'var(--header-height)',
+        height: 'var(--header-height, 64px)',
         backgroundColor: 'var(--color-bg-surface)',
         borderBottom: '1px solid var(--color-border-subtle)',
         position: 'sticky',
         top: 0,
         zIndex: 'var(--z-sticky-header)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 var(--space-lg)'
+        width: '100%',
+        boxShadow: '0 1px 3px rgba(15, 23, 32, 0.04)',
+        transition: 'background-color var(--duration-default) var(--easing-standard)'
       }}
     >
-      {/* Brand & Wordmark */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2xl)' }}>
-        <button
-          onClick={() => onNavigate('dashboard')}
+      <div
+        className="container"
+        style={{
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 'var(--space-md)'
+        }}
+      >
+        {/* Brand & Wordmark */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+          <button
+            onClick={() => onNavigate('dashboard')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '6px 4px',
+              borderRadius: 'var(--radius-md)'
+            }}
+            aria-label="Legal AI Home"
+          >
+            {/* Concept: "The Marked Page" */}
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                backgroundColor: 'var(--color-bg-surface-sunken)',
+                border: '1px solid var(--color-border-subtle)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 1px 2px rgba(15, 23, 32, 0.05)',
+                flexShrink: 0
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path 
+                  d="M4 3H15L20 8V21H4V3Z" 
+                  stroke="var(--color-ink-700)" 
+                  strokeWidth="2" 
+                  strokeLinejoin="round" 
+                />
+                <path 
+                  d="M15 3V8H20" 
+                  stroke="var(--color-accent-500)" 
+                  strokeWidth="2" 
+                  strokeLinejoin="round" 
+                />
+              </svg>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
+              <span
+                style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: '17px',
+                  fontWeight: 700,
+                  color: 'var(--color-ink-900)',
+                  letterSpacing: '-0.01em',
+                  lineHeight: 1.2
+                }}
+              >
+                Legal AI
+              </span>
+              <span
+                className="desktop-chamber-tag"
+                style={{
+                  fontSize: '10px',
+                  fontFamily: 'var(--font-sans)',
+                  color: 'var(--color-text-muted)',
+                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase',
+                  fontWeight: 600
+                }}
+              >
+                Chambers Suite
+              </span>
+            </div>
+          </button>
+        </div>
+
+        {/* Desktop Primary Navigation: Modern Segmented Pill Island */}
+        <nav
+          className="desktop-nav"
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 'var(--space-xs)',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 0
+            backgroundColor: 'var(--color-bg-surface-sunken)',
+            border: '1px solid var(--color-border-subtle)',
+            borderRadius: '9999px',
+            padding: '3px 4px',
+            gap: '2px',
+            boxShadow: 'inset 0 1px 2px rgba(15, 23, 32, 0.04)'
           }}
-          aria-label="Legal AI Home"
         >
-          {/* Concept: "The Marked Page" per §3.1 */}
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path 
-              d="M4 3H15L20 8V21H4V3Z" 
-              stroke="var(--color-ink-700)" 
-              strokeWidth="2" 
-              strokeLinejoin="round" 
-            />
-            <path 
-              d="M15 3V8H20" 
-              stroke="var(--color-accent-500)" 
-              strokeWidth="2" 
-              strokeLinejoin="round" 
-            />
-          </svg>
-          <span
-            style={{
-              fontFamily: 'var(--font-serif)',
-              fontSize: '18px',
-              fontWeight: 600,
-              color: 'var(--color-ink-700)',
-              letterSpacing: '0'
-            }}
-          >
-            Legal AI
-          </span>
-        </button>
-
-        {/* Desktop Primary Navigation */}
-        <nav className="desktop-nav" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
           {navItems.map((item) => {
             const isActive = activeView === item.id || 
               (item.id === 'cases' && activeView === 'case-detail') ||
               (item.id === 'drafting' && (activeView === 'drafting' || activeView === 'editor'));
+            const Icon = item.icon;
             return (
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
+                className={`nav-pill-btn ${isActive ? 'is-active' : ''}`}
                 style={{
-                  background: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  padding: '6px 13px',
+                  borderRadius: '9999px',
                   border: 'none',
-                  cursor: 'pointer',
-                  padding: 'var(--space-sm) var(--space-md)',
+                  backgroundColor: isActive ? 'var(--color-bg-surface-raised)' : 'transparent',
+                  color: isActive ? 'var(--color-ink-900)' : 'var(--color-text-secondary)',
                   fontFamily: 'var(--font-sans)',
-                  fontSize: 'var(--text-h3)',
+                  fontSize: '13px',
                   fontWeight: isActive ? 600 : 500,
-                  color: isActive ? 'var(--color-ink-700)' : 'var(--color-text-secondary)',
+                  cursor: 'pointer',
                   position: 'relative',
-                  borderRadius: 'var(--radius-md)',
-                  transition: 'color var(--duration-fast) var(--easing-standard)'
+                  whiteSpace: 'nowrap',
+                  boxShadow: isActive ? '0 1px 3px rgba(15, 23, 32, 0.08), 0 1px 2px rgba(15, 23, 32, 0.04)' : 'none',
+                  transition: 'all 0.15s cubic-bezier(0.2, 0.0, 0.0, 1.0)'
                 }}
               >
-                {item.label}
-                {isActive && (
+                <Icon
+                  size={15}
+                  color={isActive ? (item.id === 'ai' ? 'var(--color-ai-500)' : 'var(--color-accent-700)') : 'var(--color-ink-300)'}
+                  style={{
+                    flexShrink: 0,
+                    transition: 'color 0.15s ease'
+                  }}
+                />
+                <span className="nav-label-full">{item.label}</span>
+                <span className="nav-label-short" style={{ display: 'none' }}>{item.shortLabel}</span>
+                {item.badge && (
                   <span
                     style={{
-                      position: 'absolute',
-                      bottom: '2px',
-                      left: 'var(--space-md)',
-                      right: 'var(--space-md)',
-                      height: '2px',
-                      backgroundColor: 'var(--color-accent-500)',
-                      borderRadius: '1px'
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      padding: '1px 5px',
+                      borderRadius: '6px',
+                      backgroundColor: isActive ? 'var(--color-accent-100)' : 'rgba(79, 95, 138, 0.12)',
+                      color: isActive ? 'var(--color-accent-700)' : 'var(--color-ai-500)',
+                      letterSpacing: '0.03em'
                     }}
-                  />
+                  >
+                    {item.badge}
+                  </span>
                 )}
               </button>
             );
           })}
         </nav>
-      </div>
 
-      {/* Right Utility Navigation */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
-        {/* Dark Mode 3-state toggle right in header (§8.1) */}
-        <button
-          onClick={cycleTheme}
-          title={`Theme: ${themeMode} (Click to switch)`}
-          aria-label="Toggle theme"
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: '8px',
-            borderRadius: 'var(--radius-md)',
-            color: 'var(--color-text-secondary)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-        >
-          {themeMode === 'light' ? (
-            <Sun size={18} />
-          ) : themeMode === 'dark' ? (
-            <Moon size={18} />
-          ) : (
-            <Laptop size={18} />
-          )}
-        </button>
-
-        {/* Notifications */}
-        <div style={{ position: 'relative' }}>
+        {/* Right Utility Navigation */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {/* Dark Mode 3-state toggle */}
           <button
-            onClick={() => setNotifOpen(!notifOpen)}
-            aria-label="Notifications"
+            onClick={cycleTheme}
+            title={`Theme: ${themeMode} (Click to switch)`}
+            aria-label="Toggle theme"
+            className="header-icon-btn"
             style={{
               background: 'none',
               border: 'none',
               cursor: 'pointer',
-              padding: '8px',
+              width: '34px',
+              height: '34px',
               borderRadius: 'var(--radius-md)',
               color: 'var(--color-text-secondary)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              position: 'relative'
+              transition: 'background-color 0.15s ease, color 0.15s ease'
             }}
           >
-            <Bell size={18} />
-            <span
-              style={{
-                position: 'absolute',
-                top: '6px',
-                right: '6px',
-                width: '7px',
-                height: '7px',
-                backgroundColor: 'var(--color-error-text)',
-                borderRadius: '50%'
-              }}
-            />
+            {themeMode === 'light' ? (
+              <Sun size={17} />
+            ) : themeMode === 'dark' ? (
+              <Moon size={17} />
+            ) : (
+              <Laptop size={17} />
+            )}
           </button>
 
-          {notifOpen && (
-            <div
+          {/* Notifications */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setNotifOpen(!notifOpen)}
+              aria-label="Notifications"
+              className="header-icon-btn"
               style={{
-                position: 'absolute',
-                top: 'calc(100% + 8px)',
-                right: 0,
-                width: '320px',
-                backgroundColor: 'var(--color-bg-surface)',
-                border: '1px solid var(--color-border-subtle)',
-                borderRadius: 'var(--radius-lg)',
-                boxShadow: 'var(--elevation-2)',
-                zIndex: 'var(--z-dropdown)',
-                padding: 'var(--space-md)'
+                background: notifOpen ? 'var(--color-bg-surface-sunken)' : 'none',
+                border: 'none',
+                cursor: 'pointer',
+                width: '34px',
+                height: '34px',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--color-text-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+                transition: 'background-color 0.15s ease, color 0.15s ease'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
-                <span style={{ fontSize: 'var(--text-label)', fontWeight: 600, color: 'var(--color-text-primary)' }}>
-                  Notifications
-                </span>
-                <span style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-muted)' }}>
-                  1 unread
-                </span>
-              </div>
-              <div style={{ borderTop: '1px solid var(--color-border-subtle)', paddingTop: 'var(--space-sm)' }}>
-                <div style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-primary)', marginBottom: '4px' }}>
-                  <strong>Hearing in 4 days:</strong> Martinez v. Coastal Holdings
-                </div>
-                <div style={{ fontSize: 'var(--text-label)', color: 'var(--color-text-muted)' }}>
-                  Sep 17, 10:30 AM — Bench IV
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+              <Bell size={17} />
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '7px',
+                  right: '7px',
+                  width: '7px',
+                  height: '7px',
+                  backgroundColor: 'var(--color-error-text)',
+                  borderRadius: '50%',
+                  border: '1.5px solid var(--color-bg-surface)'
+                }}
+              />
+            </button>
 
-        {/* Settings Shortcut */}
-        <button
-          onClick={() => onNavigate('settings')}
-          aria-label="Settings"
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: '8px',
-            borderRadius: 'var(--radius-md)',
-            color: activeView === 'settings' ? 'var(--color-ink-700)' : 'var(--color-text-secondary)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-        >
-          <SettingsIcon size={18} />
-        </button>
+            {notifOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  right: 0,
+                  width: '320px',
+                  backgroundColor: 'var(--color-bg-surface)',
+                  border: '1px solid var(--color-border-subtle)',
+                  borderRadius: 'var(--radius-lg)',
+                  boxShadow: 'var(--elevation-2)',
+                  zIndex: 'var(--z-dropdown)',
+                  padding: 'var(--space-md)'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
+                  <span style={{ fontSize: 'var(--text-label)', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                    Notifications
+                  </span>
+                  <span style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-muted)' }}>
+                    1 unread
+                  </span>
+                </div>
+                <div style={{ borderTop: '1px solid var(--color-border-subtle)', paddingTop: 'var(--space-sm)' }}>
+                  <div style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-primary)', marginBottom: '4px' }}>
+                    <strong>Hearing in 4 days:</strong> Martinez v. Coastal Holdings
+                  </div>
+                  <div style={{ fontSize: 'var(--text-label)', color: 'var(--color-text-muted)' }}>
+                    Sep 17, 10:30 AM — Bench IV
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
-        {/* Profile Popover Anchor */}
-        <div ref={profileRef} style={{ position: 'relative', marginLeft: 'var(--space-2xs)' }}>
+          {/* Settings Shortcut */}
           <button
-            onClick={() => setProfileOpen(!profileOpen)}
-            aria-label="User profile menu"
+            onClick={() => onNavigate('settings')}
+            aria-label="Settings"
+            className="header-icon-btn"
             style={{
-              background: 'var(--color-bg-surface-sunken)',
-              border: '1px solid var(--color-border-default)',
-              borderRadius: '50%',
-              width: '32px',
-              height: '32px',
+              background: activeView === 'settings' ? 'var(--color-bg-surface-sunken)' : 'none',
+              border: 'none',
+              cursor: 'pointer',
+              width: '34px',
+              height: '34px',
+              borderRadius: 'var(--radius-md)',
+              color: activeView === 'settings' ? 'var(--color-ink-900)' : 'var(--color-text-secondary)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: 600,
-              fontFamily: 'var(--font-sans)',
-              color: 'var(--color-ink-700)'
+              transition: 'background-color 0.15s ease, color 0.15s ease'
             }}
           >
-            {currentUser?.avatarInitials || "EV"}
+            <SettingsIcon size={17} />
           </button>
 
-          {profileOpen && (
-            <div
+          {/* Divider */}
+          <div style={{ width: '1px', height: '22px', backgroundColor: 'var(--color-border-subtle)', margin: '0 4px' }} />
+
+          {/* Profile Popover Anchor */}
+          <div ref={profileRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => setProfileOpen(!profileOpen)}
+              aria-label="User profile menu"
               style={{
-                position: 'absolute',
-                top: 'calc(100% + 8px)',
-                right: 0,
-                width: '260px',
-                backgroundColor: 'var(--color-bg-surface)',
-                border: '1px solid var(--color-border-subtle)',
-                borderRadius: 'var(--radius-lg)',
-                boxShadow: 'var(--elevation-2)',
-                zIndex: 'var(--z-dropdown)',
-                padding: 'var(--space-sm)'
+                background: 'var(--color-bg-surface-sunken)',
+                border: '1px solid var(--color-border-default)',
+                borderRadius: '50%',
+                width: '34px',
+                height: '34px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 600,
+                fontFamily: 'var(--font-sans)',
+                color: 'var(--color-ink-700)',
+                transition: 'transform 0.15s ease, border-color 0.15s ease'
               }}
             >
-              <div style={{ padding: 'var(--space-xs) var(--space-sm)', borderBottom: '1px solid var(--color-border-subtle)', marginBottom: 'var(--space-xs)' }}>
-                <div style={{ fontWeight: 600, fontSize: 'var(--text-body)', color: 'var(--color-text-primary)' }}>
-                  {currentUser?.name || "Adv. Elena Vance"}
+              {currentUser?.avatarInitials || "EV"}
+            </button>
+
+            {profileOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  right: 0,
+                  width: '260px',
+                  backgroundColor: 'var(--color-bg-surface)',
+                  border: '1px solid var(--color-border-subtle)',
+                  borderRadius: 'var(--radius-lg)',
+                  boxShadow: 'var(--elevation-2)',
+                  zIndex: 'var(--z-dropdown)',
+                  padding: 'var(--space-sm)'
+                }}
+              >
+                <div style={{ padding: 'var(--space-xs) var(--space-sm)', borderBottom: '1px solid var(--color-border-subtle)', marginBottom: 'var(--space-xs)' }}>
+                  <div style={{ fontWeight: 600, fontSize: 'var(--text-body)', color: 'var(--color-text-primary)' }}>
+                    {currentUser?.name || "Adv. Elena Vance"}
+                  </div>
+                  <div style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                    {currentUser?.barNumber?.split(' ')[0] || "NY-BAR-481920"}
+                  </div>
                 </div>
-                <div style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)' }}>
-                  {currentUser?.barNumber?.split(' ')[0] || "NY-BAR-481920"}
-                </div>
+
+                <button
+                  onClick={() => {
+                    setProfileOpen(false);
+                    onNavigate('settings');
+                  }}
+                  className="profile-menu-item"
+                  style={{
+                    width: '100%',
+                    background: 'none',
+                    border: 'none',
+                    padding: '8px var(--space-sm)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-xs)',
+                    fontSize: 'var(--text-caption)',
+                    color: 'var(--color-text-primary)',
+                    cursor: 'pointer',
+                    borderRadius: 'var(--radius-md)',
+                    textAlign: 'left'
+                  }}
+                >
+                  <User size={15} color="var(--color-text-secondary)" />
+                  <span>Account Profile</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setProfileOpen(false);
+                    onNavigate('settings');
+                  }}
+                  className="profile-menu-item"
+                  style={{
+                    width: '100%',
+                    background: 'none',
+                    border: 'none',
+                    padding: '8px var(--space-sm)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-xs)',
+                    fontSize: 'var(--text-caption)',
+                    color: 'var(--color-text-primary)',
+                    cursor: 'pointer',
+                    borderRadius: 'var(--radius-md)',
+                    textAlign: 'left'
+                  }}
+                >
+                  <Shield size={15} color="var(--color-text-secondary)" />
+                  <span>Security & 2FA</span>
+                </button>
+
+                <div style={{ borderTop: '1px solid var(--color-border-subtle)', margin: 'var(--space-xs) 0' }} />
+
+                <button
+                  onClick={() => {
+                    setProfileOpen(false);
+                    onLogout();
+                  }}
+                  className="profile-menu-item"
+                  style={{
+                    width: '100%',
+                    background: 'none',
+                    border: 'none',
+                    padding: '8px var(--space-sm)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-xs)',
+                    fontSize: 'var(--text-caption)',
+                    color: 'var(--color-error-text)',
+                    cursor: 'pointer',
+                    borderRadius: 'var(--radius-md)',
+                    textAlign: 'left'
+                  }}
+                >
+                  <LogOut size={15} />
+                  <span>Sign Out</span>
+                </button>
               </div>
+            )}
+          </div>
 
-              <button
-                onClick={() => {
-                  setProfileOpen(false);
-                  onNavigate('settings');
-                }}
-                className="profile-menu-item"
-                style={{
-                  width: '100%',
-                  background: 'none',
-                  border: 'none',
-                  padding: '8px var(--space-sm)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-xs)',
-                  fontSize: 'var(--text-caption)',
-                  color: 'var(--color-text-primary)',
-                  cursor: 'pointer',
-                  borderRadius: 'var(--radius-md)',
-                  textAlign: 'left'
-                }}
-              >
-                <User size={15} color="var(--color-text-secondary)" />
-                <span>Account Profile</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setProfileOpen(false);
-                  onNavigate('settings');
-                }}
-                className="profile-menu-item"
-                style={{
-                  width: '100%',
-                  background: 'none',
-                  border: 'none',
-                  padding: '8px var(--space-sm)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-xs)',
-                  fontSize: 'var(--text-caption)',
-                  color: 'var(--color-text-primary)',
-                  cursor: 'pointer',
-                  borderRadius: 'var(--radius-md)',
-                  textAlign: 'left'
-                }}
-              >
-                <Shield size={15} color="var(--color-text-secondary)" />
-                <span>Security & 2FA</span>
-              </button>
-
-              <div style={{ borderTop: '1px solid var(--color-border-subtle)', margin: 'var(--space-xs) 0' }} />
-
-              <button
-                onClick={() => {
-                  setProfileOpen(false);
-                  onLogout();
-                }}
-                className="profile-menu-item"
-                style={{
-                  width: '100%',
-                  background: 'none',
-                  border: 'none',
-                  padding: '8px var(--space-sm)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-xs)',
-                  fontSize: 'var(--text-caption)',
-                  color: 'var(--color-error-text)',
-                  cursor: 'pointer',
-                  borderRadius: 'var(--radius-md)',
-                  textAlign: 'left'
-                }}
-              >
-                <LogOut size={15} />
-                <span>Sign Out</span>
-              </button>
-            </div>
-          )}
+          {/* Mobile Hamburger Menu Toggle */}
+          <button
+            className="mobile-hamburger"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle navigation menu"
+            style={{
+              display: 'none',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '6px',
+              color: 'var(--color-text-primary)'
+            }}
+          >
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
-
-        {/* Mobile Hamburger Menu Toggle */}
-        <button
-          className="mobile-hamburger"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          aria-label="Toggle navigation menu"
-          style={{
-            display: 'none',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: '8px',
-            color: 'var(--color-text-primary)'
-          }}
-        >
-          {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
       </div>
 
       {/* Mobile Nav Drawer */}
@@ -418,7 +511,7 @@ export const Header = ({
         <div
           style={{
             position: 'fixed',
-            top: 'var(--header-height)',
+            top: 'var(--header-height, 64px)',
             left: 0,
             bottom: 0,
             width: '280px',
@@ -432,36 +525,79 @@ export const Header = ({
             gap: 'var(--space-xs)'
           }}
         >
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                onNavigate(item.id);
-                setMobileMenuOpen(false);
-              }}
-              style={{
-                width: '100%',
-                background: activeView === item.id ? 'var(--color-bg-surface-sunken)' : 'none',
-                border: 'none',
-                textAlign: 'left',
-                padding: 'var(--space-sm) var(--space-md)',
-                fontSize: 'var(--text-h3)',
-                color: activeView === item.id ? 'var(--color-ink-700)' : 'var(--color-text-secondary)',
-                fontWeight: activeView === item.id ? 600 : 500,
-                borderRadius: 'var(--radius-md)',
-                cursor: 'pointer'
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
+          {navItems.map((item) => {
+            const isActive = activeView === item.id || 
+              (item.id === 'cases' && activeView === 'case-detail') ||
+              (item.id === 'drafting' && (activeView === 'drafting' || activeView === 'editor'));
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  onNavigate(item.id);
+                  setMobileMenuOpen(false);
+                }}
+                style={{
+                  width: '100%',
+                  background: isActive ? 'var(--color-bg-surface-sunken)' : 'transparent',
+                  border: 'none',
+                  textAlign: 'left',
+                  padding: '10px 14px',
+                  fontSize: '14px',
+                  color: isActive ? 'var(--color-ink-900)' : 'var(--color-text-secondary)',
+                  fontWeight: isActive ? 600 : 500,
+                  borderRadius: 'var(--radius-md)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  transition: 'background-color 0.15s ease'
+                }}
+              >
+                <Icon size={16} color={isActive ? 'var(--color-accent-700)' : 'var(--color-ink-300)'} />
+                <span>{item.label}</span>
+                {item.badge && (
+                  <span
+                    style={{
+                      marginLeft: 'auto',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      padding: '1px 6px',
+                      borderRadius: '6px',
+                      backgroundColor: 'var(--color-ai-100)',
+                      color: 'var(--color-ai-500)'
+                    }}
+                  >
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
 
       <style>{`
-        @media (max-width: 768px) {
+        @media (max-width: 1200px) {
+          .nav-label-full { display: none !important; }
+          .nav-label-short { display: inline !important; }
+        }
+        @media (max-width: 900px) {
           .desktop-nav { display: none !important; }
+          .desktop-chamber-tag { display: none !important; }
           .mobile-hamburger { display: flex !important; }
+        }
+        .nav-pill-btn:not(.is-active):hover {
+          background-color: rgba(15, 23, 32, 0.05) !important;
+          color: var(--color-ink-900) !important;
+        }
+        [data-theme="dark"] .nav-pill-btn:not(.is-active):hover {
+          background-color: rgba(255, 255, 255, 0.08) !important;
+          color: var(--color-ink-900) !important;
+        }
+        .header-icon-btn:hover {
+          background-color: var(--color-bg-surface-sunken) !important;
+          color: var(--color-ink-900) !important;
         }
         .profile-menu-item:hover {
           background-color: var(--color-bg-surface-sunken) !important;

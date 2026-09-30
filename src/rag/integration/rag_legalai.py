@@ -1,3 +1,5 @@
+import urllib.request
+import json
 """
 rag_legalai.py
 
@@ -88,6 +90,7 @@ class LegalAIRAGPipeline:
         base_model = AutoModelForCausalLM.from_pretrained(
             self.base_model_name,
             torch_dtype=dtype,
+            attn_implementation="sdpa",
             device_map=self.device if self.device.startswith("cuda") else "auto",
             trust_remote_code=False,
         )
@@ -297,17 +300,37 @@ class LegalAIRAGPipeline:
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         input_length = inputs["input_ids"].shape[1]
 
-        with torch.inference_mode():
-            output_ids = self.model.generate(
-                **inputs,
-                max_new_tokens=max_new_tokens,
-                do_sample=False,
-                pad_token_id=self.tokenizer.pad_token_id,
-                eos_token_id=self.tokenizer.eos_token_id,
+        vllm_success = False
+        try:
+            req_data = json.dumps({
+                "model": "legalai",
+                "messages": messages,
+                "max_tokens": max_new_tokens,
+                "temperature": 0.0
+            }).encode("utf-8")
+            req = urllib.request.Request(
+                "http://127.0.0.1:8009/v1/chat/completions",
+                data=req_data,
+                headers={"Content-Type": "application/json"}
             )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                vllm_data = json.loads(resp.read().decode("utf-8"))
+                answer_text = vllm_data["choices"][0]["message"]["content"].strip()
+                vllm_success = True
+        except Exception:
+            vllm_success = False
 
-        new_tokens = output_ids[0, input_length:]
-        answer_text = self.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+        if not vllm_success and self.model is not None:
+            with torch.inference_mode():
+                output_ids = self.model.generate(
+                    **inputs,
+                    max_new_tokens=max_new_tokens,
+                    do_sample=False,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id,
+                )
+            new_tokens = output_ids[0, input_length:]
+            answer_text = self.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
 
         # -------------------------------------------------------------
         # STAGE 8: Post-Generation Citation Verification

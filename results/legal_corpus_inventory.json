@@ -1,0 +1,17 @@
+{
+    "tables": [
+        "indian_legal_sources",
+        "indian_legal_documents",
+        "indian_legal_chunks",
+        "indian_legal_chunks_fts",
+        "indian_legal_chunks_fts_data",
+        "indian_legal_chunks_fts_idx",
+        "indian_legal_chunks_fts_content",
+        "indian_legal_chunks_fts_docsize",
+        "indian_legal_chunks_fts_config",
+        "indian_corpus_ingestion_state",
+        "indian_legal_notifications",
+        "indian_legal_amendments"
+    ],
+    "acts": []
+}

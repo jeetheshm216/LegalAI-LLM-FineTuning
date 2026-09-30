@@ -44,7 +44,7 @@ export const DashboardView = ({
 
   if (showEmptyStateDemo || cases.length === 0) {
     return (
-      <div className="container" style={{ padding: 'var(--space-2xl) var(--space-md)' }}>
+      <div className="container" style={{ paddingTop: 'var(--space-2xl)', paddingBottom: 'var(--space-2xl)' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-md)' }}>
           <button
             onClick={() => setShowEmptyStateDemo(!showEmptyStateDemo)}
@@ -75,7 +75,7 @@ export const DashboardView = ({
   }
 
   return (
-    <div className="container" style={{ padding: 'var(--space-xl) var(--space-md)' }}>
+    <div className="container" style={{ paddingTop: 'var(--space-xl)', paddingBottom: 'var(--space-2xl)' }}>
       {/* Dev preview toggle for evaluating both states */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-xs)' }}>
         <button

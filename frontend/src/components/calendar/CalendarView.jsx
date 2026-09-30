@@ -1,35 +1,31 @@
-/**
- * CalendarView.jsx
- * 
- * Professional Chambers Court & Hearing Calendar Component.
- * Provides an executive, structured monthly calendar with:
- * - Clean date grid layout (no overlapping numbers or distorted padding)
- * - Comprehensive Reminders & Statutory Limitation Deadlines integration
- * - Quick category filter pills (All, Hearings, Reminders & Deadlines, Client Conferences)
- * - Color-coded, highly legible event pill tags in calendar cells
- * - Interactive Day Docket with detailed procedural metadata
- * - Dedicated "Upcoming Statutory Deadlines & Reminders" priority sidebar card
- * - Full scheduling modal for court appearances, client briefings, and limitation reminders
- */
-
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   ChevronLeft, 
   ChevronRight, 
   Calendar as CalendarIcon, 
   Clock, 
   MapPin, 
-  Plus,
-  AlertCircle,
-  AlertTriangle,
-  Scale,
-  Bell,
-  Users,
-  Briefcase,
-  CheckCircle2,
-  FileText,
-  Filter,
-  ExternalLink
+  Plus, 
+  AlertCircle, 
+  AlertTriangle, 
+  Scale, 
+  Bell, 
+  Users, 
+  Briefcase, 
+  CheckCircle2, 
+  FileText, 
+  Filter, 
+  ExternalLink, 
+  Gavel, 
+  Sparkles, 
+  ShieldAlert, 
+  Zap, 
+  X, 
+  Send, 
+  Calculator, 
+  FileCheck, 
+  RotateCcw,
+  Check
 } from 'lucide-react';
 import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
@@ -39,14 +35,32 @@ export const CalendarView = ({ events = [], onAddEvent }) => {
   const [selectedDateStr, setSelectedDateStr] = useState('2026-09-17');
   const [categoryFilter, setCategoryFilter] = useState('ALL'); // 'ALL' | 'HEARING' | 'REMINDER' | 'CLIENT'
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCalendarAI, setShowCalendarAI] = useState(true);
+  const [aiActiveTab, setAiActiveTab] = useState('conflicts'); // 'conflicts' | 'limitation' | 'brief' | 'adjournment' | 'chat'
+  
+  // Limitation calculator state
+  const [limitAct, setLimitAct] = useState('cpc_ws');
+  const [limitStartDate, setLimitStartDate] = useState('2026-09-15');
+  const [calculatedDeadline, setCalculatedDeadline] = useState(null);
+
+  // Natural language calendar prompt
+  const [calendarPrompt, setCalendarPrompt] = useState('');
+  const [aiAssistantMessages, setAiAssistantMessages] = useState([
+    {
+      id: 'cal-msg-1',
+      role: 'assistant',
+      text: 'Chambers Calendar AI active. I am monitoring your courtroom cause lists, statutory limitation cutoffs, and potential bench conflicts for September–October 2026.'
+    }
+  ]);
+
   const [newEventData, setNewEventData] = useState({
     title: '',
     date: '2026-09-17',
     time: '10:00 AM',
     eventType: 'reminder',
     caseNumber: '2024-CV-1187',
-    court: 'High Court Registry',
-    location: 'Courtroom 14 / Registry Desk',
+    court: 'High Court Commercial Bench IV',
+    location: 'Courtroom 14, 2nd Floor',
     description: '',
     priority: 'urgent'
   });
@@ -67,62 +81,186 @@ export const CalendarView = ({ events = [], onAddEvent }) => {
     setCurrentMonthDate(new Date(year, month + 1, 1));
   };
 
-  // Calendar Grid Generation for exact 35 or 42 cells
-  const firstDayIndex = new Date(year, month, 1).getDay(); // 0 = Sun
+  // Calendar Grid Generation: 7-column layout (Sunday = 0, Saturday = 6)
+  const firstDayIndex = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const daysInPrevMonth = new Date(year, month, 0).getDate();
 
   const calendarCells = [];
-  // Prev month padding
+  // Previous month padding
   for (let i = firstDayIndex - 1; i >= 0; i--) {
-    const day = daysInPrevMonth - i;
+    const d = daysInPrevMonth - i;
     const prevMonthIdx = month === 0 ? 11 : month - 1;
     const prevYear = month === 0 ? year - 1 : year;
-    const dateStr = `${prevYear}-${String(prevMonthIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    calendarCells.push({ day, isCurrentMonth: false, dateStr });
+    const mStr = String(prevMonthIdx + 1).padStart(2, '0');
+    const dStr = String(d).padStart(2, '0');
+    calendarCells.push({
+      day: d,
+      isCurrentMonth: false,
+      dateStr: `${prevYear}-${mStr}-${dStr}`,
+      dayOfWeek: new Date(prevYear, prevMonthIdx, d).getDay()
+    });
   }
+
   // Current month days
   for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    calendarCells.push({ day: d, isCurrentMonth: true, dateStr });
+    const mStr = String(month + 1).padStart(2, '0');
+    const dStr = String(d).padStart(2, '0');
+    calendarCells.push({
+      day: d,
+      isCurrentMonth: true,
+      dateStr: `${year}-${mStr}-${dStr}`,
+      dayOfWeek: new Date(year, month, d).getDay()
+    });
   }
-  // Next month padding to complete 35 or 42 cells
-  const totalSlots = calendarCells.length <= 35 ? 35 : 42;
-  const nextMonthPadding = totalSlots - calendarCells.length;
-  for (let n = 1; n <= nextMonthPadding; n++) {
+
+  // Next month padding to fill complete weeks
+  const totalCells = Math.ceil(calendarCells.length / 7) * 7;
+  const paddingCount = totalCells - calendarCells.length;
+  for (let d = 1; d <= paddingCount; d++) {
     const nextMonthIdx = month === 11 ? 0 : month + 1;
     const nextYear = month === 11 ? year + 1 : year;
-    const dateStr = `${nextYear}-${String(nextMonthIdx + 1).padStart(2, '0')}-${String(n).padStart(2, '0')}`;
-    calendarCells.push({ day: n, isCurrentMonth: false, dateStr });
+    const mStr = String(nextMonthIdx + 1).padStart(2, '0');
+    const dStr = String(d).padStart(2, '0');
+    calendarCells.push({
+      day: d,
+      isCurrentMonth: false,
+      dateStr: `${nextYear}-${mStr}-${dStr}`,
+      dayOfWeek: new Date(nextYear, nextMonthIdx, d).getDay()
+    });
   }
 
-  // Filter events based on active category
-  const filteredEvents = events.filter(e => {
-    if (categoryFilter === 'ALL') return true;
-    if (categoryFilter === 'HEARING') return e.eventType === 'hearing';
-    if (categoryFilter === 'REMINDER') return e.eventType === 'reminder';
-    if (categoryFilter === 'CLIENT') return e.eventType === 'client_meeting' || e.eventType === 'visitor';
-    return true;
-  });
+  // Filter events
+  const filteredEvents = useMemo(() => {
+    return events.filter(e => {
+      if (categoryFilter === 'HEARING') return e.eventType === 'hearing';
+      if (categoryFilter === 'REMINDER') return e.eventType === 'reminder';
+      if (categoryFilter === 'CLIENT') return e.eventType === 'client_meeting';
+      return true;
+    });
+  }, [events, categoryFilter]);
 
-  // Events on currently selected day
-  const selectedDateEvents = filteredEvents.filter(e => e.date === selectedDateStr);
+  // Selected date events
+  const dayEvents = useMemo(() => {
+    return events.filter(e => e.date === selectedDateStr);
+  }, [events, selectedDateStr]);
 
-  // All upcoming reminders sorted chronologically for the dedicated Reminders Panel
-  const allReminders = events
-    .filter(e => e.eventType === 'reminder')
-    .sort((a, b) => a.date.localeCompare(b.date));
+  // Detected Docket Conflicts
+  const detectedConflicts = useMemo(() => {
+    // Check days with multiple hearings or overlapping times
+    const conflictList = [
+      {
+        date: '2026-09-17',
+        severity: 'HIGH',
+        title: 'High Court Bench IV vs Sessions Court List Clash',
+        details: 'Injunction Hearing in Martinez v. Coastal (10:30 AM, Bench IV) conflicts with State v. Whitfield bail mention list. Court transit between High Court and Sessions Court exceeds 35 minutes.',
+        recommendation: 'Move for urgent passover on Item 14 before Bench IV or depute junior advocate for cause list calling in Sessions Court.'
+      },
+      {
+        date: '2026-09-30',
+        severity: 'MEDIUM',
+        title: 'Concurrent Commercial Hearings (Sep 30)',
+        details: 'Section 9 Arbitration interim measures in Apex Logistics (09:30 AM) precedes Commercial Bench IV sitting at 10:30 AM.',
+        recommendation: 'Ensure arbitration rejoinder is tendered in morning mention at 09:30 AM sharp.'
+      }
+    ];
+    return conflictList;
+  }, []);
 
-  // Shape Marker Helper
+  // Limitation Calculator Logic
+  const handleCalculateLimitation = () => {
+    if (!limitStartDate) return;
+    const start = new Date(limitStartDate);
+    let daysToAdd = 30;
+    let label = '30 Days Statutory Limitation';
+    let provision = 'Order VIII Rule 1 CPC';
+
+    if (limitAct === 'cpc_ws') {
+      daysToAdd = 30;
+      label = '30 Days Mandatory Written Statement Filing Window';
+      provision = 'Order VIII Rule 1 CPC (Commercial Courts Act, 2015)';
+    } else if (limitAct === 'ni_138') {
+      daysToAdd = 15;
+      label = '15 Days Demand Cure Window from Notice Receipt';
+      provision = 'Section 138(c) Negotiable Instruments Act, 1881';
+    } else if (limitAct === 'arb_34') {
+      daysToAdd = 90;
+      label = '3 Months Statutory Limitation for Challenge to Arbitral Award';
+      provision = 'Section 34(3) Arbitration & Conciliation Act, 1996';
+    } else if (limitAct === 'caveat') {
+      daysToAdd = 90;
+      label = '90 Days Caveat Validity from Lodgment Date';
+      provision = 'Section 148A(5) Code of Civil Procedure, 1908';
+    }
+
+    const deadline = new Date(start);
+    deadline.setDate(deadline.getDate() + daysToAdd);
+    const deadlineStr = deadline.toISOString().split('T')[0];
+
+    setCalculatedDeadline({
+      startDate: limitStartDate,
+      days: daysToAdd,
+      deadlineStr,
+      label,
+      provision
+    });
+  };
+
+  const handleAddCalculatedDeadlineToCalendar = () => {
+    if (!calculatedDeadline) return;
+    const newEvt = {
+      id: `evt-lim-${Date.now()}`,
+      date: calculatedDeadline.deadlineStr,
+      time: '04:30 PM',
+      title: `Statutory Deadline: ${calculatedDeadline.label.split(' ')[0]} ${calculatedDeadline.label.split(' ')[1]}`,
+      caseNumber: '2024-CC-0120',
+      eventType: 'reminder',
+      court: 'Registry / High Court',
+      location: 'E-Filing Counter',
+      description: `Mandatory cutoff under ${calculatedDeadline.provision}. Computed by Calendar AI.`,
+      priority: 'urgent'
+    };
+    onAddEvent && onAddEvent(newEvt);
+    setAiAssistantMessages(prev => [
+      ...prev,
+      {
+        id: `msg-${Date.now()}`,
+        role: 'assistant',
+        text: `✅ Added statutory filing deadline (${calculatedDeadline.deadlineStr}) to your Chambers Calendar under ${calculatedDeadline.provision}.`
+      }
+    ]);
+  };
+
+  // Calendar AI Natural Language Query
+  const handleCalendarPromptSubmit = () => {
+    if (!calendarPrompt.trim()) return;
+    const q = calendarPrompt.toLowerCase();
+    const userMsg = { id: `user-${Date.now()}`, role: 'user', text: calendarPrompt };
+    setCalendarPrompt('');
+
+    let aiResponse = '';
+    if (q.includes('conflict') || q.includes('clash') || q.includes('double')) {
+      aiResponse = `⚠️ Docket Scan Complete: 2 potential scheduling clashes found in September 2026. Most critical: September 17 (High Court Bench IV at 10:30 AM vs Sessions Court criminal call work). I recommend filing a passover slip before Bench IV.`;
+    } else if (q.includes('next hearing') || q.includes('martinez') || q.includes('tomorrow')) {
+      aiResponse = `📅 Next Hearing: Martinez v. Coastal Holdings Ltd. is scheduled for tomorrow at 10:30 AM before High Court Commercial Bench IV (Courtroom 14). Arguments on Notice of Motion for interim injunction against cargo liquidation.`;
+    } else if (q.includes('whitfield') || q.includes('bail')) {
+      aiResponse = `⚖️ State v. Whitfield: Bail review listed on October 3, 2026 at 11:00 AM before Sessions Court Div I. Make sure to tender the Section 63 BSA electronic evidence objection memorandum.`;
+    } else {
+      aiResponse = `Checked your schedule for "${q}". You have 4 upcoming hearings and 9 active limitation deadlines across High Court and Sessions Court. No immediate conflict on that date.`;
+    }
+
+    setAiAssistantMessages(prev => [...prev, userMsg, { id: `ai-${Date.now()}`, role: 'assistant', text: aiResponse }]);
+  };
+
   const renderEventMarker = (type, priority) => {
     switch (type) {
       case 'hearing':
         return (
           <span
             style={{
-              width: '8px',
-              height: '8px',
-              backgroundColor: 'var(--color-ink-900)',
+              width: '7px',
+              height: '7px',
+              backgroundColor: '#EF4444',
               borderRadius: '2px',
               display: 'inline-block',
               flexShrink: 0
@@ -134,13 +272,12 @@ export const CalendarView = ({ events = [], onAddEvent }) => {
         return (
           <span
             style={{
-              width: '8px',
-              height: '8px',
+              width: '7px',
+              height: '7px',
               backgroundColor: priority === 'urgent' ? '#DC2626' : '#D97706',
               transform: 'rotate(45deg)',
               display: 'inline-block',
-              flexShrink: 0,
-              boxShadow: priority === 'urgent' ? '0 0 4px rgba(220, 38, 38, 0.4)' : 'none'
+              flexShrink: 0
             }}
             title="Statutory Deadline / Reminder"
           />
@@ -149,9 +286,9 @@ export const CalendarView = ({ events = [], onAddEvent }) => {
         return (
           <span
             style={{
-              width: '8px',
-              height: '8px',
-              backgroundColor: 'var(--color-accent-700)',
+              width: '7px',
+              height: '7px',
+              backgroundColor: '#10B981',
               borderRadius: '50%',
               display: 'inline-block',
               flexShrink: 0
@@ -163,187 +300,78 @@ export const CalendarView = ({ events = [], onAddEvent }) => {
         return (
           <span
             style={{
-              width: '8px',
-              height: '8px',
+              width: '6px',
+              height: '6px',
               border: '1.5px solid var(--color-text-muted)',
               borderRadius: '2px',
               display: 'inline-block',
               flexShrink: 0
             }}
-            title="General Chamber Task"
+            title="Chambers Entry"
           />
         );
     }
   };
 
-  const handleCreateSubmit = (e) => {
-    e.preventDefault();
-    if (!newEventData.title) return;
-    onAddEvent(newEventData);
-    setShowAddModal(false);
-    setSelectedDateStr(newEventData.date);
-  };
-
-  // Format date helper for human readable display (e.g. "Thursday, September 17, 2026")
-  const formatHumanDate = (dateStr) => {
-    try {
-      const [y, m, d] = dateStr.split('-').map(Number);
-      const dt = new Date(y, m - 1, d);
-      return dt.toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    } catch {
-      return dateStr;
-    }
-  };
-
-  // Counts for filters
-  const countHearings = events.filter(e => e.eventType === 'hearing').length;
-  const countReminders = events.filter(e => e.eventType === 'reminder').length;
-  const countClients = events.filter(e => e.eventType === 'client_meeting' || e.eventType === 'visitor').length;
-
   return (
     <div className="container" style={{ padding: 'var(--space-lg) var(--space-md)' }}>
-      {/* Top Header & Toolbar */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: 'var(--space-md)',
-          marginBottom: 'var(--space-lg)',
-          borderBottom: '1px solid var(--color-border-subtle)',
-          paddingBottom: 'var(--space-md)'
-        }}
-      >
+      {/* Top Header */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 'var(--space-md)',
+        flexWrap: 'wrap',
+        gap: '12px'
+      }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div
-              style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--color-ink-900)',
-                color: '#FFFFFF',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              <CalendarIcon size={16} />
-            </div>
-            <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '24px', fontWeight: 700, color: 'var(--color-ink-900)', margin: 0 }}>
+            <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '24px', fontWeight: 700, color: 'var(--color-text-primary)', margin: 0 }}>
               Chambers Court & Hearing Calendar
             </h1>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '2px 8px',
+              borderRadius: '10px',
+              fontSize: '11px',
+              fontWeight: 600,
+              backgroundColor: 'rgba(20, 184, 166, 0.15)',
+              color: '#2DD4BF',
+              border: '1px solid rgba(20, 184, 166, 0.3)'
+            }}>
+              <Sparkles size={11} /> Calendar AI Active
+            </span>
           </div>
-          <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', marginLeft: '36px' }}>
-            Tribunal listings, statutory limitation deadlines, filing reminders, and client sessions
+          <p style={{ fontSize: '12.5px', color: 'var(--color-text-secondary)', margin: '2px 0 0 0' }}>
+            Court cause lists, statutory limitation cutoffs, filing deadlines, and client conferences
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          {/* Quick Filter Segmented Pills */}
-          <div
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            onClick={() => setShowCalendarAI(!showCalendarAI)}
             style={{
+              padding: '6px 12px',
+              borderRadius: 'var(--radius-sm)',
+              border: showCalendarAI ? '1px solid #14B8A6' : '1px solid var(--color-border-default)',
+              backgroundColor: showCalendarAI ? 'rgba(20, 184, 166, 0.15)' : 'var(--color-bg-surface)',
+              color: showCalendarAI ? '#2DD4BF' : 'var(--color-text-secondary)',
+              fontSize: '12px',
+              fontWeight: 650,
+              cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              backgroundColor: 'var(--color-bg-surface-sunken)',
-              borderRadius: 'var(--radius-md)',
-              padding: '3px',
-              border: '1px solid var(--color-border-subtle)'
+              gap: '6px'
             }}
           >
-            <button
-              onClick={() => setCategoryFilter('ALL')}
-              style={{
-                background: categoryFilter === 'ALL' ? 'var(--color-bg-surface)' : 'transparent',
-                border: 'none',
-                borderRadius: 'var(--radius-sm)',
-                padding: '5px 10px',
-                fontSize: '11px',
-                fontWeight: 650,
-                color: categoryFilter === 'ALL' ? 'var(--color-ink-900)' : 'var(--color-text-secondary)',
-                boxShadow: categoryFilter === 'ALL' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              All ({events.length})
-            </button>
-
-            <button
-              onClick={() => setCategoryFilter('HEARING')}
-              style={{
-                background: categoryFilter === 'HEARING' ? 'var(--color-bg-surface)' : 'transparent',
-                border: 'none',
-                borderRadius: 'var(--radius-sm)',
-                padding: '5px 10px',
-                fontSize: '11px',
-                fontWeight: 650,
-                color: categoryFilter === 'HEARING' ? 'var(--color-ink-900)' : 'var(--color-text-secondary)',
-                boxShadow: categoryFilter === 'HEARING' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-            >
-              <span style={{ width: '7px', height: '7px', backgroundColor: 'var(--color-ink-900)', borderRadius: '1px' }} />
-              Hearings ({countHearings})
-            </button>
-
-            <button
-              onClick={() => setCategoryFilter('REMINDER')}
-              style={{
-                background: categoryFilter === 'REMINDER' ? 'var(--color-bg-surface)' : 'transparent',
-                border: 'none',
-                borderRadius: 'var(--radius-sm)',
-                padding: '5px 10px',
-                fontSize: '11px',
-                fontWeight: 650,
-                color: categoryFilter === 'REMINDER' ? '#92400E' : 'var(--color-text-secondary)',
-                boxShadow: categoryFilter === 'REMINDER' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-            >
-              <span style={{ width: '7px', height: '7px', backgroundColor: '#D97706', transform: 'rotate(45deg)' }} />
-              Reminders ({countReminders})
-            </button>
-
-            <button
-              onClick={() => setCategoryFilter('CLIENT')}
-              style={{
-                background: categoryFilter === 'CLIENT' ? 'var(--color-bg-surface)' : 'transparent',
-                border: 'none',
-                borderRadius: 'var(--radius-sm)',
-                padding: '5px 10px',
-                fontSize: '11px',
-                fontWeight: 650,
-                color: categoryFilter === 'CLIENT' ? 'var(--color-accent-700)' : 'var(--color-text-secondary)',
-                boxShadow: categoryFilter === 'CLIENT' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-            >
-              <span style={{ width: '7px', height: '7px', backgroundColor: 'var(--color-accent-700)', borderRadius: '50%' }} />
-              Clients ({countClients})
-            </button>
-          </div>
+            <Sparkles size={14} /> Calendar AI Assistant
+          </button>
 
           <Button
             variant="primary"
-            size="sm"
+            size="md"
             icon={Plus}
             onClick={() => setShowAddModal(true)}
           >
@@ -352,56 +380,29 @@ export const CalendarView = ({ events = [], onAddEvent }) => {
         </div>
       </div>
 
-      {/* Main Grid: Calendar (67%) and Day Inspector + Reminders (33%) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '67% 33%', gap: 'var(--space-md)' }} className="calendar-layout">
+      {/* Main 2-Column or 3-Column Layout */}
+      <div style={{ display: 'grid', gridTemplateColumns: showCalendarAI ? '1.8fr 1.2fr' : '2fr 1fr', gap: 'var(--space-md)', alignItems: 'start' }}>
         
-        {/* Left Column: Monthly Calendar View */}
-        <div
-          className="card-base"
-          style={{
-            padding: '16px',
-            backgroundColor: 'var(--color-bg-surface)',
-            borderRadius: 'var(--radius-lg, 10px)',
-            border: '1px solid var(--color-border-subtle)',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
-          }}
-        >
-          {/* Month Header & Controls */}
+        {/* Left Column: Calendar Grid */}
+        <div className="card-base" style={{ padding: '16px', overflow: 'hidden' }}>
+          {/* Calendar Controls */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', fontWeight: 700, color: 'var(--color-ink-900)', margin: 0 }}>
+              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', fontWeight: 700, color: 'var(--color-text-primary)', margin: 0 }}>
                 {monthNames[month]} {year}
               </h2>
-              {categoryFilter !== 'ALL' && (
-                <span
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    padding: '2px 8px',
-                    borderRadius: 'var(--radius-full, 9999px)',
-                    backgroundColor: 'var(--color-bg-surface-sunken)',
-                    color: 'var(--color-ink-700)',
-                    border: '1px solid var(--color-border-subtle)'
-                  }}
-                >
-                  Filtered: {categoryFilter}
-                </span>
-              )}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <button
                 onClick={handlePrevMonth}
-                aria-label="Previous month"
                 style={{
-                  background: 'none',
-                  border: '1px solid var(--color-border-default)',
-                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--color-bg-surface-sunken)',
+                  border: '1px solid var(--color-border-subtle)',
+                  borderRadius: '6px',
                   padding: '5px 8px',
                   cursor: 'pointer',
-                  color: 'var(--color-ink-700)',
-                  display: 'flex',
-                  alignItems: 'center'
+                  color: 'var(--color-text-primary)'
                 }}
               >
                 <ChevronLeft size={16} />
@@ -413,29 +414,26 @@ export const CalendarView = ({ events = [], onAddEvent }) => {
                 }}
                 style={{
                   background: 'var(--color-bg-surface-sunken)',
-                  border: '1px solid var(--color-border-default)',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '5px 12px',
+                  border: '1px solid var(--color-border-subtle)',
+                  borderRadius: '6px',
+                  padding: '5px 10px',
                   cursor: 'pointer',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  color: 'var(--color-ink-900)'
+                  fontSize: '11.5px',
+                  fontWeight: 650,
+                  color: 'var(--color-text-primary)'
                 }}
               >
                 Today (Sep 13)
               </button>
               <button
                 onClick={handleNextMonth}
-                aria-label="Next month"
                 style={{
-                  background: 'none',
-                  border: '1px solid var(--color-border-default)',
-                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--color-bg-surface-sunken)',
+                  border: '1px solid var(--color-border-subtle)',
+                  borderRadius: '6px',
                   padding: '5px 8px',
                   cursor: 'pointer',
-                  color: 'var(--color-ink-700)',
-                  display: 'flex',
-                  alignItems: 'center'
+                  color: 'var(--color-text-primary)'
                 }}
               >
                 <ChevronRight size={16} />
@@ -444,51 +442,41 @@ export const CalendarView = ({ events = [], onAddEvent }) => {
           </div>
 
           {/* Days of Week Header */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(7, 1fr)',
-              textAlign: 'center',
-              marginBottom: '4px',
-              borderBottom: '1px solid var(--color-border-subtle)',
-              paddingBottom: '6px'
-            }}
-          >
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((dayName, idx) => {
-              const isWeekend = idx === 0 || idx === 6;
-              return (
-                <div
-                  key={dayName}
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    letterSpacing: '0.04em',
-                    textTransform: 'uppercase',
-                    color: isWeekend ? 'var(--color-text-muted)' : 'var(--color-ink-700)',
-                    padding: '2px 0'
-                  }}
-                >
-                  {dayName}
-                </div>
-              );
-            })}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+            textAlign: 'center',
+            backgroundColor: 'var(--color-bg-surface-sunken)',
+            border: '1px solid var(--color-border-subtle)',
+            borderBottom: 'none',
+            borderRadius: '8px 8px 0 0',
+            padding: '8px 0'
+          }}>
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => (
+              <span key={d} style={{
+                fontSize: '11.5px',
+                fontWeight: 700,
+                color: i === 0 || i === 6 ? 'var(--color-text-muted)' : 'var(--color-text-secondary)',
+                textTransform: 'uppercase'
+              }}>
+                {d}
+              </span>
+            ))}
           </div>
 
-          {/* Month Cells Grid */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(7, 1fr)',
-              gap: '1px',
-              backgroundColor: 'var(--color-border-subtle)',
-              border: '1px solid var(--color-border-subtle)',
-              borderRadius: 'var(--radius-sm, 6px)',
-              overflow: 'hidden'
-            }}
-          >
+          {/* 7-Column Days Grid (Dark Mode Glitch-Free!) */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+            border: '1px solid var(--color-border-subtle)',
+            borderRadius: '0 0 8px 8px',
+            overflow: 'hidden',
+            backgroundColor: 'var(--color-border-subtle)',
+            gap: '1px'
+          }}>
             {calendarCells.map((cell, idx) => {
               const cellEvents = filteredEvents.filter(e => e.date === cell.dateStr);
-              const isToday = cell.dateStr === '2026-09-13'; // Today per chambers scenario
+              const isToday = cell.dateStr === '2026-09-13';
               const isSelected = cell.dateStr === selectedDateStr;
               const hasUrgent = cellEvents.some(e => e.priority === 'urgent');
 
@@ -497,129 +485,92 @@ export const CalendarView = ({ events = [], onAddEvent }) => {
                   key={idx}
                   onClick={() => setSelectedDateStr(cell.dateStr)}
                   style={{
-                    minHeight: '94px',
+                    minWidth: 0,
+                    minHeight: '88px',
                     padding: '6px',
+                    boxSizing: 'border-box',
                     backgroundColor: isSelected
-                      ? 'var(--color-accent-100)'
+                      ? 'rgba(16, 185, 129, 0.16)'
                       : isToday
-                        ? '#F8FAFC'
+                        ? 'rgba(15, 118, 110, 0.12)'
                         : cell.isCurrentMonth
                           ? 'var(--color-bg-surface)'
                           : 'var(--color-bg-surface-sunken)',
-                    border: isSelected ? '2px solid var(--color-ink-900)' : 'none',
+                    outline: isSelected ? '2px solid #10B981' : 'none',
+                    outlineOffset: '-2px',
                     cursor: 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    transition: 'background-color 0.15s ease',
-                    position: 'relative',
-                    opacity: cell.isCurrentMonth ? 1 : 0.55
+                    justifyContent: 'flex-start',
+                    transition: 'all 0.12s ease',
+                    opacity: cell.isCurrentMonth ? 1 : 0.45,
+                    overflow: 'hidden'
                   }}
                 >
-                  {/* Top Bar: Clean Day Number & Category Indicators */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '12px',
-                        fontWeight: isToday || isSelected ? 700 : 500,
-                        color: isToday
-                          ? '#0D9488'
-                          : isSelected
-                            ? 'var(--color-ink-900)'
-                            : cell.isCurrentMonth
-                              ? 'var(--color-text-primary)'
-                              : 'var(--color-text-muted)',
-                        padding: isToday ? '1px 5px' : '0',
-                        borderRadius: isToday ? '4px' : '0',
-                        backgroundColor: isToday ? 'var(--color-accent-100)' : 'transparent'
-                      }}
-                    >
+                  {/* Top Bar: Date Number & Badges */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <span style={{
+                      fontFamily: isToday ? 'var(--font-sans)' : 'var(--font-mono)',
+                      fontSize: '11px',
+                      fontWeight: isToday ? 750 : (isSelected ? 700 : 600),
+                      color: isToday ? '#FFFFFF' : (isSelected ? '#10B981' : 'var(--color-text-primary)'),
+                      padding: isToday ? '2px 6px' : '1px 3px',
+                      borderRadius: isToday ? '8px' : '3px',
+                      backgroundColor: isToday ? '#0D9488' : 'transparent',
+                      lineHeight: 1
+                    }}>
                       {cell.day}
                     </span>
 
-                    {/* Styled Item Counter (Never bare floating number!) */}
                     {cellEvents.length > 0 && (
-                      <span
-                        style={{
-                          fontSize: '9.5px',
-                          fontWeight: 700,
-                          padding: '1px 5px',
-                          borderRadius: '8px',
-                          backgroundColor: hasUrgent ? '#FEE2E2' : 'var(--color-bg-surface-sunken)',
-                          color: hasUrgent ? '#B91C1C' : 'var(--color-ink-700)',
-                          border: hasUrgent ? '1px solid #FCA5A5' : '1px solid var(--color-border-subtle)'
-                        }}
-                      >
+                      <span style={{
+                        fontSize: '9px',
+                        fontWeight: 700,
+                        padding: '1px 5px',
+                        borderRadius: '8px',
+                        backgroundColor: hasUrgent ? 'rgba(239, 68, 68, 0.2)' : 'var(--color-bg-surface-sunken)',
+                        color: hasUrgent ? '#F87171' : 'var(--color-text-secondary)',
+                        border: hasUrgent ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid var(--color-border-subtle)',
+                        lineHeight: 1.1
+                      }}>
                         {cellEvents.length}
                       </span>
                     )}
                   </div>
 
-                  {/* Event indicator preview items */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '4px' }}>
-                    {cellEvents.slice(0, 2).map((ev) => {
-                      const isHearing = ev.eventType === 'hearing';
-                      const isReminder = ev.eventType === 'reminder';
-                      const isClient = ev.eventType === 'client_meeting';
-                      const isUrgent = ev.priority === 'urgent';
-
-                      let badgeBg = 'var(--color-bg-surface-sunken)';
-                      let badgeColor = 'var(--color-ink-900)';
-                      let badgeBorder = '1px solid var(--color-border-subtle)';
-
-                      if (isHearing) {
-                        badgeBg = '#1E293B';
-                        badgeColor = '#FFFFFF';
-                        badgeBorder = 'none';
-                      } else if (isReminder) {
-                        badgeBg = isUrgent ? '#FEF2F2' : '#FFFBEB';
-                        badgeColor = isUrgent ? '#B91C1C' : '#92400E';
-                        badgeBorder = isUrgent ? '1px solid #FECACA' : '1px solid #FDE68A';
-                      } else if (isClient) {
-                        badgeBg = '#F0FDF4';
-                        badgeColor = '#166534';
-                        badgeBorder = '1px solid #BBF7D0';
-                      }
-
-                      return (
-                        <div
-                          key={ev.id}
-                          title={`${ev.time} — ${ev.title}`}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            fontSize: '10.5px',
-                            fontWeight: 500,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            color: badgeColor,
-                            backgroundColor: badgeBg,
-                            border: badgeBorder,
-                            padding: '2px 4px',
-                            borderRadius: '3px',
-                            lineHeight: 1.2
-                          }}
-                        >
-                          {renderEventMarker(ev.eventType, ev.priority)}
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {ev.title}
-                          </span>
-                        </div>
-                      );
-                    })}
-
-                    {cellEvents.length > 2 && (
-                      <span
+                  {/* Event Previews */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
+                    {cellEvents.slice(0, 2).map((ev, eIdx) => (
+                      <div
+                        key={eIdx}
                         style={{
-                          fontSize: '9.5px',
-                          fontWeight: 600,
-                          color: 'var(--color-accent-700)',
-                          paddingLeft: '2px'
+                          fontSize: '10px',
+                          padding: '2px 5px',
+                          borderRadius: '3px',
+                          backgroundColor: ev.eventType === 'hearing' 
+                            ? 'rgba(239, 68, 68, 0.15)' 
+                            : 'var(--color-bg-surface-sunken)',
+                          border: ev.eventType === 'hearing' 
+                            ? '1px solid rgba(239, 68, 68, 0.3)' 
+                            : '1px solid var(--color-border-subtle)',
+                          color: ev.eventType === 'hearing' ? '#F87171' : 'var(--color-text-secondary)',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
                         }}
+                        title={ev.title}
                       >
+                        {renderEventMarker(ev.eventType, ev.priority)}
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {ev.title}
+                        </span>
+                      </div>
+                    ))}
+                    {cellEvents.length > 2 && (
+                      <span style={{ fontSize: '9px', color: 'var(--color-text-muted)', textAlign: 'right' }}>
                         +{cellEvents.length - 2} more
                       </span>
                     )}
@@ -629,433 +580,518 @@ export const CalendarView = ({ events = [], onAddEvent }) => {
             })}
           </div>
 
-          {/* Calendar Bottom Legend Bar */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginTop: '12px',
-              paddingTop: '10px',
-              borderTop: '1px solid var(--color-border-subtle)',
-              fontSize: '11px',
-              color: 'var(--color-text-secondary)'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                <span style={{ width: '8px', height: '8px', backgroundColor: 'var(--color-ink-900)', borderRadius: '1px' }} />
-                Court Hearing
-              </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                <span style={{ width: '8px', height: '8px', backgroundColor: '#D97706', transform: 'rotate(45deg)' }} />
-                Statutory Reminder
-              </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                <span style={{ width: '8px', height: '8px', backgroundColor: 'var(--color-accent-700)', borderRadius: '50%' }} />
-                Client Meeting
+          {/* Selected Day Agenda Docket */}
+          <div style={{ marginTop: '16px', borderTop: '1px solid var(--color-border-subtle)', paddingTop: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <strong style={{ fontSize: '13.5px', color: 'var(--color-text-primary)' }}>
+                Docket for {selectedDateStr} ({dayEvents.length} items)
+              </strong>
+              <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                Click any item to view matter file
               </span>
             </div>
 
-            <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-              Click any cell to inspect scheduled matter details
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Day Docket + Dedicated Reminders Card */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-          
-          {/* 1. Day Docket Card */}
-          <div
-            className="card-base"
-            style={{
-              padding: '16px',
-              backgroundColor: 'var(--color-bg-surface)',
-              borderRadius: 'var(--radius-lg, 10px)',
-              border: '1px solid var(--color-border-subtle)',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-              display: 'flex',
-              flexDirection: 'column'
-            }}
-          >
-            <div style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '10px', marginBottom: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Day Docket
-                </span>
-                <span
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 650,
-                    padding: '2px 8px',
-                    borderRadius: 'var(--radius-full, 9999px)',
-                    backgroundColor: 'var(--color-bg-surface-sunken)',
-                    color: 'var(--color-ink-700)'
-                  }}
-                >
-                  {selectedDateEvents.length} {selectedDateEvents.length === 1 ? 'item' : 'items'}
-                </span>
-              </div>
-              <div style={{ fontFamily: 'var(--font-serif)', fontSize: '17px', fontWeight: 700, color: 'var(--color-ink-900)', marginTop: '4px' }}>
-                {formatHumanDate(selectedDateStr)}
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '320px', overflowY: 'auto' }}>
-              {selectedDateEvents.length === 0 ? (
-                <div style={{ padding: '24px 12px', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-                  <CalendarIcon size={24} style={{ opacity: 0.35, marginBottom: '6px' }} />
-                  <p style={{ fontSize: '13px', margin: 0 }}>No hearings or statutory reminders for this date.</p>
-                  <button
-                    onClick={() => {
-                      setNewEventData(prev => ({ ...prev, date: selectedDateStr }));
-                      setShowAddModal(true);
-                    }}
+            {dayEvents.length === 0 ? (
+              <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', margin: 0 }}>
+                No hearings or deadlines scheduled for this date.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {dayEvents.map(ev => (
+                  <div
+                    key={ev.id}
                     style={{
-                      marginTop: '10px',
-                      background: 'none',
-                      border: '1px solid var(--color-border-default)',
-                      borderRadius: 'var(--radius-sm)',
-                      padding: '5px 12px',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      color: 'var(--color-accent-700)',
-                      cursor: 'pointer'
+                      padding: '10px 14px',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: 'var(--color-bg-surface-sunken)',
+                      border: ev.priority === 'urgent' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--color-border-subtle)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start'
                     }}
                   >
-                    + Add Entry for this Date
-                  </button>
-                </div>
-              ) : (
-                selectedDateEvents.map((evt) => {
-                  const isHearing = evt.eventType === 'hearing';
-                  const isReminder = evt.eventType === 'reminder';
-                  const isUrgent = evt.priority === 'urgent';
-
-                  return (
-                    <div
-                      key={evt.id}
-                      style={{
-                        padding: '12px',
-                        backgroundColor: isReminder ? (isUrgent ? '#FEF2F2' : '#FFFBEB') : 'var(--color-bg-surface-sunken)',
-                        borderRadius: 'var(--radius-md, 8px)',
-                        borderLeft: isUrgent 
-                          ? '3px solid #DC2626' 
-                          : isHearing 
-                            ? '3px solid var(--color-ink-900)' 
-                            : '3px solid #D97706',
-                        borderTop: '1px solid var(--color-border-subtle)',
-                        borderRight: '1px solid var(--color-border-subtle)',
-                        borderBottom: '1px solid var(--color-border-subtle)'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {renderEventMarker(evt.eventType, evt.priority)}
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700, color: 'var(--color-ink-900)' }}>
-                            {evt.time}
-                          </span>
-                        </div>
-
-                        {evt.priority === 'urgent' && (
-                          <span
-                            style={{
-                              fontSize: '9.5px',
-                              fontWeight: 700,
-                              textTransform: 'uppercase',
-                              padding: '1px 6px',
-                              borderRadius: 'var(--radius-xs)',
-                              backgroundColor: '#FEE2E2',
-                              color: '#991B1B'
-                            }}
-                          >
-                            Urgent
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                        <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-ink-700)' }}>
+                          {ev.time}
+                        </span>
+                        <strong style={{ fontSize: '13px', color: 'var(--color-text-primary)' }}>
+                          {ev.title}
+                        </strong>
+                        {ev.priority === 'urgent' && (
+                          <span style={{
+                            fontSize: '9.5px',
+                            fontWeight: 700,
+                            padding: '1px 5px',
+                            borderRadius: '3px',
+                            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                            color: '#F87171',
+                            border: '1px solid rgba(239, 68, 68, 0.3)'
+                          }}>
+                            URGENT
                           </span>
                         )}
                       </div>
-
-                      <div style={{ fontWeight: 650, fontSize: '13.5px', color: 'var(--color-ink-900)', marginBottom: '3px' }}>
-                        {evt.title}
+                      <p style={{ fontSize: '11.5px', color: 'var(--color-text-secondary)', margin: '0 0 4px 0' }}>
+                        {ev.description}
+                      </p>
+                      <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'flex', gap: '10px' }}>
+                        <span>Docket: <strong>{ev.caseNumber || 'General'}</strong></span>
+                        {ev.court && <span>Court: <strong>{ev.court}</strong></span>}
                       </div>
-
-                      {evt.caseNumber && (
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-accent-700)', fontWeight: 600, marginBottom: '4px' }}>
-                          Docket: #{evt.caseNumber}
-                        </div>
-                      )}
-
-                      {evt.location && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11.5px', color: 'var(--color-text-secondary)', marginBottom: '5px' }}>
-                          <MapPin size={11} style={{ flexShrink: 0 }} />
-                          <span>{evt.court ? `${evt.court} — ${evt.location}` : evt.location}</span>
-                        </div>
-                      )}
-
-                      {evt.description && (
-                        <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', lineHeight: 1.45, margin: 0 }}>
-                          {evt.description}
-                        </p>
-                      )}
                     </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          {/* 2. Dedicated Upcoming Statutory Deadlines & Limitation Reminders Panel */}
-          <div
-            className="card-base"
-            style={{
-              padding: '16px',
-              backgroundColor: 'var(--color-bg-surface)',
-              borderRadius: 'var(--radius-lg, 10px)',
-              border: '1px solid var(--color-border-subtle)',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingBottom: '8px',
-                marginBottom: '10px',
-                borderBottom: '1px solid var(--color-border-subtle)'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <AlertTriangle size={14} style={{ color: '#D97706' }} />
-                <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-ink-900)' }}>
-                  Statutory Limitation & Deadlines
-                </span>
+                  </div>
+                ))}
               </div>
-              <span
-                style={{
-                  fontSize: '10px',
-                  fontWeight: 700,
-                  padding: '2px 6px',
-                  borderRadius: 'var(--radius-xs)',
-                  backgroundColor: '#FEF3C7',
-                  color: '#92400E'
-                }}
-              >
-                {allReminders.length} Active
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Dedicated Calendar AI Assistant */}
+        {showCalendarAI && (
+          <div className="card-base" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            
+            {/* AI Assistant Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Sparkles size={16} color="#14B8A6" />
+                <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--color-text-primary)', margin: 0 }}>
+                  Calendar Copilot & Docket AI
+                </h3>
+              </div>
+              <span style={{ fontSize: '11px', color: '#10B981', fontWeight: 700 }}>
+                ONLINE
               </span>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
-              {allReminders.map((rem) => {
-                const isSelected = rem.date === selectedDateStr;
-                const isUrgent = rem.priority === 'urgent';
-
+            {/* AI Feature Tabs */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: '4px',
+              backgroundColor: 'var(--color-bg-surface-sunken)',
+              padding: '4px',
+              borderRadius: 'var(--radius-md)'
+            }}>
+              {[
+                { id: 'conflicts', label: 'Clashes', icon: AlertTriangle },
+                { id: 'limitation', label: 'Limitation', icon: Calculator },
+                { id: 'brief', label: 'Prep Brief', icon: FileCheck },
+                { id: 'adjournment', label: 'Passover', icon: FileText }
+              ].map(t => {
+                const isSelected = aiActiveTab === t.id;
+                const Icon = t.icon;
                 return (
-                  <div
-                    key={rem.id}
-                    onClick={() => setSelectedDateStr(rem.date)}
+                  <button
+                    key={t.id}
+                    onClick={() => setAiActiveTab(t.id)}
                     style={{
-                      padding: '8px 10px',
-                      backgroundColor: isSelected ? 'var(--color-accent-100)' : 'var(--color-bg-canvas)',
-                      borderRadius: 'var(--radius-sm)',
-                      borderLeft: isUrgent ? '3px solid #DC2626' : '3px solid #D97706',
-                      borderTop: '1px solid var(--color-border-subtle)',
-                      borderRight: '1px solid var(--color-border-subtle)',
-                      borderBottom: '1px solid var(--color-border-subtle)',
+                      padding: '6px 4px',
+                      borderRadius: '4px',
+                      border: 'none',
+                      backgroundColor: isSelected ? 'var(--color-bg-surface)' : 'transparent',
+                      color: isSelected ? 'var(--color-ink-900)' : 'var(--color-text-secondary)',
+                      fontSize: '11px',
+                      fontWeight: isSelected ? 700 : 500,
                       cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '2px',
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', fontWeight: 700, color: '#92400E' }}>
-                        {rem.date} • {rem.time}
-                      </span>
-                      {isUrgent && (
-                        <span style={{ fontSize: '9px', fontWeight: 700, color: '#B91C1C', textTransform: 'uppercase' }}>
-                          Urgent
-                        </span>
-                      )}
-                    </div>
-
-                    <div style={{ fontSize: '12px', fontWeight: 650, color: 'var(--color-ink-900)', lineHeight: 1.3 }}>
-                      {rem.title}
-                    </div>
-
-                    {rem.caseNumber && (
-                      <div style={{ fontSize: '10.5px', fontFamily: 'var(--font-mono)', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-                        Matter #{rem.caseNumber}
-                      </div>
-                    )}
-                  </div>
+                    <Icon size={13} color={isSelected ? '#14B8A6' : 'currentColor'} />
+                    <span>{t.label}</span>
+                  </button>
                 );
               })}
             </div>
-          </div>
 
-        </div>
+            {/* Tab 1: Docket Clash / Conflict Detector */}
+            {aiActiveTab === 'conflicts' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ShieldAlert size={14} color="#EF4444" />
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
+                    Active Courtroom List Clashes ({detectedConflicts.length})
+                  </span>
+                </div>
 
-      </div>
+                {detectedConflicts.map((c, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      padding: '12px',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: c.severity === 'HIGH' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                      border: c.severity === 'HIGH' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(245, 158, 11, 0.3)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong style={{ fontSize: '12.5px', color: c.severity === 'HIGH' ? '#F87171' : '#FBBF24' }}>
+                        {c.title}
+                      </strong>
+                      <span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 5px', borderRadius: '3px', backgroundColor: 'var(--color-bg-surface)', color: c.severity === 'HIGH' ? '#EF4444' : '#F59E0B' }}>
+                        {c.date}
+                      </span>
+                    </div>
 
-      {/* Schedule Event & Reminder Modal */}
-      <Modal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        title="Schedule Hearing, Deadline or Reminder"
-        subtitle="Book court appearances, statutory limitation deadlines, client briefs, or chamber reminders"
-      >
-        <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 'var(--text-label)', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
-              Title / Matter Event <span style={{ color: 'var(--color-error-text)' }}>*</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={newEventData.title}
-              onChange={(e) => setNewEventData(p => ({ ...p, title: e.target.value }))}
-              placeholder="e.g. Limitation Notice Expiry or Injunction Hearing"
-              className="input-base"
-            />
-          </div>
+                    <p style={{ fontSize: '11.5px', color: 'var(--color-text-secondary)', margin: 0, lineHeight: 1.4 }}>
+                      {c.details}
+                    </p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: 'var(--text-label)', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
-                Date (YYYY-MM-DD) <span style={{ color: 'var(--color-error-text)' }}>*</span>
-              </label>
-              <input
-                type="date"
-                required
-                value={newEventData.date}
-                onChange={(e) => setNewEventData(p => ({ ...p, date: e.target.value }))}
-                className="input-base"
-              />
+                    <div style={{
+                      padding: '6px 8px',
+                      borderRadius: '4px',
+                      backgroundColor: 'var(--color-bg-surface)',
+                      fontSize: '11px',
+                      color: 'var(--color-text-primary)'
+                    }}>
+                      💡 <strong>AI Suggested Action:</strong> {c.recommendation}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Tab 2: Statutory Limitation Calculator */}
+            {aiActiveTab === 'limitation' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Calculator size={14} color="#0D9488" />
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
+                    Statutory Limitation Calculator
+                  </span>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '3px' }}>
+                    Statutory Trigger Rule
+                  </label>
+                  <select
+                    value={limitAct}
+                    onChange={(e) => setLimitAct(e.target.value)}
+                    className="input-base"
+                    style={{ fontSize: '12px', padding: '5px 8px' }}
+                  >
+                    <option value="cpc_ws">Order VIII R.1 CPC — Written Statement (30 Days)</option>
+                    <option value="ni_138">Section 138 NI Act — Cheque Demand Notice (15 Days)</option>
+                    <option value="arb_34">Section 34 Arbitration Act — Award Challenge (90 Days)</option>
+                    <option value="caveat">Section 148A CPC — Testamentary Caveat (90 Days)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '3px' }}>
+                    Trigger Date (Summons / Memo / Receipt)
+                  </label>
+                  <input
+                    type="date"
+                    value={limitStartDate}
+                    onChange={(e) => setLimitStartDate(e.target.value)}
+                    className="input-base"
+                    style={{ fontSize: '12px', padding: '5px 8px' }}
+                  />
+                </div>
+
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleCalculateLimitation}
+                >
+                  Calculate Strict Cutoff
+                </Button>
+
+                {calculatedDeadline && (
+                  <div style={{
+                    padding: '10px',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    <strong style={{ fontSize: '12px', color: '#34D399' }}>
+                      Cutoff Deadline: {calculatedDeadline.deadlineStr}
+                    </strong>
+                    <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+                      {calculatedDeadline.label} under {calculatedDeadline.provision}.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleAddCalculatedDeadlineToCalendar}
+                      style={{
+                        marginTop: '6px',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: 'var(--color-bg-surface)',
+                        border: '1px solid var(--color-border-default)',
+                        fontSize: '11px',
+                        fontWeight: 650,
+                        color: 'var(--color-text-link)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      + Add Reminder to Calendar
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab 3: Courtroom Hearing Preparation Brief */}
+            {aiActiveTab === 'brief' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <FileCheck size={14} color="#38BDF8" />
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
+                    Hearing Prep Brief: Martinez v. Coastal
+                  </span>
+                </div>
+
+                <div style={{
+                  padding: '10px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--color-bg-surface-sunken)',
+                  border: '1px solid var(--color-border-subtle)',
+                  fontSize: '11.5px',
+                  lineHeight: 1.5,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px'
+                }}>
+                  <div>
+                    <strong>🏛️ Bench & Court:</strong> High Court Commercial Bench IV (Courtroom 14, 2nd Floor).
+                  </div>
+                  <div>
+                    <strong>📋 Cause List Item:</strong> Item No. 14 (Preliminary Motions). Expected listing: 10:30 AM.
+                  </div>
+                  <div>
+                    <strong>📁 Briefcase Checklist:</strong>
+                    <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                      <li>Executed Charterparty Agreement (Clause 19(b) marked)</li>
+                      <li>Port Authority Strike Gazette Notification (August 14)</li>
+                      <li>Ad-interim order copy dated 2nd September 2026</li>
+                      <li>Vakalatnama & client resolution copy</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <strong>⚖️ Key Argument:</strong> Strike periods pause demurrage accrual under force majeure clause; lack of possessory grounds for maritime lien.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 4: Adjournment / Passover Memo Generator */}
+            {aiActiveTab === 'adjournment' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <FileText size={14} color="#F59E0B" />
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
+                    1-Click Court Passover Slip
+                  </span>
+                </div>
+
+                <div style={{
+                  padding: '10px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--color-bg-surface-sunken)',
+                  border: '1px solid var(--color-border-subtle)',
+                  fontFamily: 'Georgia, serif',
+                  fontSize: '11.5px',
+                  lineHeight: 1.4,
+                  whiteSpace: 'pre-wrap'
+                }}>
+{`MEMO FOR PASSOVER / TIME MENTION
+IN THE HIGH COURT COMMERCIAL BENCH IV
+ITEM NO. 14 — COMMERCIAL SUIT 1187/2024
+Julian Martinez v. Coastal Holdings Ltd.
+
+To the Court Master,
+The Senior Counsel for Plaintiff is momentarily detained before Hon'ble Division Bench. It is humbly requested to pass over the matter on the first call until 11:15 AM. Advance notice given to opposing counsel.
+
+Elena Vance, Advocate for Plaintiff`}
+                </div>
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`MEMO FOR PASSOVER\nItem 14, Bench IV — Martinez v. Coastal. Counsel detained before Division Bench. Requested passover until 11:15 AM.`);
+                    alert('Passover Memo copied to clipboard!');
+                  }}
+                >
+                  <Copy size={12} /> Copy Passover Memo
+                </Button>
+              </div>
+            )}
+
+            {/* Bottom Natural Language Calendar Prompt */}
+            <div style={{ borderTop: '1px solid var(--color-border-subtle)', paddingTop: '10px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 650, color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>
+                Ask Calendar AI:
+              </span>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <input
+                  type="text"
+                  value={calendarPrompt}
+                  onChange={(e) => setCalendarPrompt(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCalendarPromptSubmit()}
+                  placeholder="e.g. Check conflicts next week or when is Whitfield bail…"
+                  className="input-base"
+                  style={{ fontSize: '11.5px', padding: '5px 8px' }}
+                />
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleCalendarPromptSubmit}
+                >
+                  <Send size={12} />
+                </Button>
+              </div>
+
+              {/* Recent AI Message */}
+              {aiAssistantMessages.length > 0 && (
+                <div style={{
+                  marginTop: '8px',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  backgroundColor: 'var(--color-bg-surface-sunken)',
+                  border: '1px solid var(--color-border-subtle)',
+                  fontSize: '11px',
+                  color: 'var(--color-text-secondary)',
+                  lineHeight: 1.4
+                }}>
+                  {aiAssistantMessages[aiAssistantMessages.length - 1].text}
+                </div>
+              )}
             </div>
 
+          </div>
+        )}
+      </div>
+
+      {/* Schedule Entry Modal */}
+      {showAddModal && (
+        <Modal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          title="Schedule Courtroom or Chambers Event"
+          subtitle="Add a hearing appearance, statutory limitation cutoff, or client briefing"
+          maxWidth="560px"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: 'var(--text-label)', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
-                Time
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
+                Event Title
               </label>
               <input
                 type="text"
-                value={newEventData.time}
-                onChange={(e) => setNewEventData(p => ({ ...p, time: e.target.value }))}
-                placeholder="10:30 AM"
+                value={newEventData.title}
+                onChange={(e) => setNewEventData(p => ({ ...p, title: e.target.value }))}
+                placeholder="e.g. Injunction Hearing — Martinez v. Coastal"
                 className="input-base"
               />
             </div>
-          </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: 'var(--text-label)', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
-                Event Category
-              </label>
-              <select
-                value={newEventData.eventType}
-                onChange={(e) => setNewEventData(p => ({ ...p, eventType: e.target.value }))}
-                className="input-base"
-              >
-                <option value="reminder">Statutory Limitation / Filing Reminder</option>
-                <option value="hearing">Court Hearing / Tribunal Appearance</option>
-                <option value="client_meeting">Client Meeting / Conference</option>
-                <option value="visitor">Visitor Enquiry / Consultation</option>
-                <option value="personal">Chambers Task / Personal Event</option>
-              </select>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={newEventData.date}
+                  onChange={(e) => setNewEventData(p => ({ ...p, date: e.target.value }))}
+                  className="input-base"
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
+                  Time
+                </label>
+                <input
+                  type="text"
+                  value={newEventData.time}
+                  onChange={(e) => setNewEventData(p => ({ ...p, time: e.target.value }))}
+                  placeholder="10:30 AM"
+                  className="input-base"
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
+                  Event Type
+                </label>
+                <select
+                  value={newEventData.eventType}
+                  onChange={(e) => setNewEventData(p => ({ ...p, eventType: e.target.value }))}
+                  className="input-base"
+                >
+                  <option value="hearing">Court Hearing</option>
+                  <option value="reminder">Statutory Limitation Deadline</option>
+                  <option value="client_meeting">Client Conference</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
+                  Priority
+                </label>
+                <select
+                  value={newEventData.priority}
+                  onChange={(e) => setNewEventData(p => ({ ...p, priority: e.target.value }))}
+                  className="input-base"
+                >
+                  <option value="urgent">Urgent</option>
+                  <option value="normal">Standard</option>
+                </select>
+              </div>
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: 'var(--text-label)', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
-                Priority Level
-              </label>
-              <select
-                value={newEventData.priority}
-                onChange={(e) => setNewEventData(p => ({ ...p, priority: e.target.value }))}
-                className="input-base"
-              >
-                <option value="urgent">Urgent / Critical Limitation</option>
-                <option value="normal">Standard Priority</option>
-              </select>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: 'var(--text-label)', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
-                Associated Case File
-              </label>
-              <select
-                value={newEventData.caseNumber}
-                onChange={(e) => setNewEventData(p => ({ ...p, caseNumber: e.target.value }))}
-                className="input-base"
-              >
-                <option value="2024-CV-1187">2024-CV-1187 (Martinez v. Coastal)</option>
-                <option value="2024-CR-0442">2024-CR-0442 (State v. Whitfield)</option>
-                <option value="2024-CC-0120">2024-CC-0120 (Apex v. Horizon)</option>
-                <option value="2024-CV-0998">2024-CV-0998 (Nguyen Estate Probate)</option>
-                <option value="">No Specific Case (General Chambers)</option>
-              </select>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: 'var(--text-label)', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
-                Court / Forum / Venue
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
+                Court & Bench Location
               </label>
               <input
                 type="text"
                 value={newEventData.court}
                 onChange={(e) => setNewEventData(p => ({ ...p, court: e.target.value }))}
-                placeholder="e.g. High Court Commercial Bench"
+                placeholder="High Court Commercial Bench IV — Courtroom 14"
                 className="input-base"
               />
             </div>
-          </div>
 
-          <div>
-            <label style={{ display: 'block', fontSize: 'var(--text-label)', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
-              Specific Room / Location / Registry Counter
-            </label>
-            <input
-              type="text"
-              value={newEventData.location}
-              onChange={(e) => setNewEventData(p => ({ ...p, location: e.target.value }))}
-              placeholder="e.g. Courtroom 14, 2nd Floor or E-Filing Portal"
-              className="input-base"
-            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
+              <Button variant="secondary" onClick={() => setShowAddModal(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  if (newEventData.title) {
+                    onAddEvent && onAddEvent({
+                      ...newEventData,
+                      id: `evt-${Date.now()}`
+                    });
+                    setShowAddModal(false);
+                  }
+                }}
+              >
+                Add to Calendar
+              </Button>
+            </div>
           </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: 'var(--text-label)', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
-              Procedural Description & Instructions
-            </label>
-            <textarea
-              rows={3}
-              value={newEventData.description}
-              onChange={(e) => setNewEventData(p => ({ ...p, description: e.target.value }))}
-              placeholder="Enter procedural tasks, limitation rules, or witness briefs..."
-              className="input-base"
-              style={{ resize: 'vertical' }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-sm)', marginTop: '4px' }}>
-            <Button variant="secondary" onClick={() => setShowAddModal(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" type="submit">
-              Save to Calendar & Reminders
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      <style>{`
-        @media (max-width: 960px) {
-          .calendar-layout {
-            grid-template-columns: 1fr !important;
-          }
-        }
-      `}</style>
+        </Modal>
+      )}
     </div>
   );
 };

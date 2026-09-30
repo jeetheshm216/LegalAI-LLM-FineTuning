@@ -117,7 +117,7 @@ export const Button = ({
           to { transform: rotate(360deg); }
         }
         .btn-primary:hover:not(:disabled) {
-          background-color: #0F1720 !important;
+          background-color: var(--color-ink-900) !important;
         }
         .btn-secondary:hover:not(:disabled) {
           background-color: var(--color-bg-surface-sunken) !important;

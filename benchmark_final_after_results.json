@@ -1,0 +1,62 @@
+[
+  {
+    "id": "q1_general_coding",
+    "name": "General Coding / Concept (Odd or Even Python)",
+    "query": "Write a Python program to check whether a number is odd or even.",
+    "error": "HTTPConnectionPool(host='127.0.0.1', port=8008): Read timed out. (read timeout=120)"
+  },
+  {
+    "id": "q2_case_greeting",
+    "name": "Case Context Greeting ('hi')",
+    "query": "hi",
+    "status_code": 200,
+    "duration_sec": 0.008,
+    "query_type": "CONVERSATIONAL",
+    "route": "CONVERSATIONAL",
+    "reliability": "supported",
+    "reliabilityLabel": "Conversational Response",
+    "source_count": 0,
+    "sources": [],
+    "content": "Hello! \ud83d\udc4b I'm ready to assist you with this legal matter. You can ask me to analyze the arguments, review filings, draft pleadings, or check next hearing preparations. How can I assist you today?"
+  },
+  {
+    "id": "q3_civil_petition_drafting",
+    "name": "Civil Petition Property Dispute Drafting",
+    "query": "**1. Type of Document:**\nCivil Petition / Petition relating to a property dispute\n\n**2. Purpose:**\nThe petition is being prepared to request the court to protect the petitioner's rights over a property and to seek appropriate relief against the respondent, who is allegedly interfering with the petitioner's lawful possession of the property.\n\n**3. Parties Involved:**\n\n* **Petitioner:** Mr. Arun Kumar, aged 42, residing at Coimbatore, Tamil Nadu\n* **Respondent:** Mr. Ravi Kumar, aged 45, residing at Coimbatore, Tamil Nadu\n* **Court:** Appropriate jurisdictional Civil Court\n\n**4. Specific Details / Clauses:**\n\n* Description and location of the disputed property\n* Petitioner's basis for claiming ownership or lawful possession\n* Details of the respondent's alleged interference\n* Relevant dates and events\n* Details of supporting documents, such as sale deed, patta, tax receipts, or other records\n* Request for the court to restrain the respondent from interfering with the petitioner's possession\n",
+    "error": "HTTPConnectionPool(host='127.0.0.1', port=8008): Read timed out. (read timeout=120)"
+  },
+  {
+    "id": "q4_legal_statutory",
+    "name": "Legal Statutory Query (BNS Section 103 Murder)",
+    "query": "What is the punishment for murder under section 103 of Bharatiya Nyaya Sanhita?",
+    "status_code": 200,
+    "duration_sec": 101.676,
+    "query_type": "LEGAL_QUERY",
+    "route": "LEGAL_QUERY",
+    "reliability": "supported",
+    "reliabilityLabel": "Verified Indian Legal Authority",
+    "source_count": 1,
+    "sources": [
+      {
+        "chunk_id": "BNS_2023_SEC_103",
+        "act_name": "The Bharatiya Nyaya Sanhita, 2023 Section 103",
+        "section_number": "Section 103, The Bharatiya Nyaya Sanhita, 2023",
+        "section_title": "Section 103, The Bharatiya Nyaya Sanhita, 2023",
+        "reference": "Section 103, The Bharatiya Nyaya Sanhita, 2023",
+        "content": "",
+        "source_url": "https://indiacode.gov.in/handle/123456789/496548",
+        "similarity_score": 100.0,
+        "source_type": "ACT",
+        "hierarchy": "TIER_1_PRIMARY",
+        "temporal_status": "CURRENT"
+      }
+    ],
+    "content": "### Legal Analysis & Statutory Scope\n**Issue 1:** What is the punishment for murder under section 103(1) of Bharatiya Nyaya Sanhita?\n\n**Section 103(1) of Bharatiya Nyaya Sanhita, 2023:**\n> (1) Whoever commits murder shall be punished with death or imprisonment for life, and shall also be liable to fine.\n\n**Explanation:**\nUnder Section 103(1), the punishment for committing murder is either death or imprisonment for life, along with a fine. This subsection applies to any individual who commits murder without the additional aggravating factors specified in Section 103(2).\n\n**Issue 2:** What is the punishment for murder under section 103(2) of Bharatiya Nyaya Sanhita?\n\n**Section 103(2) of Bharatiya Nyaya Sanhita, 2023:**\n> (2) When a group of five or more persons acting in concert commits murder on the ground of race, caste or community, sex, place of birth, language, personal belief or any other similar ground each member of such group shall be punished with death or with imprisonment for life, and shall also be liable to fine.\n\n**Explanation:**\nUnder Section 103(2), if a group of five or more individuals acts in concert to commit murder based on certain discriminatory grounds (such as race, caste, community, sex, place of birth, language, personal belief, or any other similar ground), then each member of that group will face the same punishment as outlined in Section 103(1). This means each member will be punished with death or imprisonment for life, and may also be fined.\n\nIn summary, the punishment for murder under Section 103 of the Bharatiya Nyaya Sanhita, 2023, varies depending on whether the murderer acted alone or as part of a group motivated by discriminatory grounds.\n\n## Authoritative Indian Legal Authorities\n\n### Section 103, The Bharatiya Nyaya Sanhita, 2023\n\n[The Bharatiya Nyaya Sanhita, 2023 (45 of 2023) | CHAPTER VI: OF OFFENCES AFFECTING THE HUMAN BODY | Section 103: Punishment for murder.]\n103. Punishment for murder.\n(1) Whoever commits murder shall be punished with death or\nimprisonment for life, and shall also be liable to fine. \n(2) When a group of five or more persons acting in concert commits murder on the ground of race, \ncaste or community, sex, place of birth, language, personal belief or any other similar ground each \nmember of such group shall be punished with death or with imprisonment for life, and shall also be liable \nto fine.\n\n**Authority**: Section 103, The Bharatiya Nyaya Sanhita, 2023\n- **Type**: ACT (CENTRAL)\n- **Hierarchy**: TIER_1_PRIMARY\n- **Temporal Status**: CURRENT\n- **Official Source**: [https://indiacode.gov.in/handle/123456789/496548](https://indiacode.gov.in/handle/123456789/496548)\n"
+  },
+  {
+    "id": "q5_legal_conceptual_low_conf",
+    "name": "General Legal Concept (Doctrine of Res Judicata and Estoppel)",
+    "query": "Explain the concept of constructive res judicata and how it differs from issue estoppel under Indian civil jurisprudence.",
+    "error": "HTTPConnectionPool(host='127.0.0.1', port=8008): Read timed out. (read timeout=120)"
+  }
+]

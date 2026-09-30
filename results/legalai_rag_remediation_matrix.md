@@ -1,0 +1,310 @@
+# LegalAI RAG Remediation Matrix
+
+### Finding ID: 1
+- **Act:** Bharatiya Nyaya Sanhita
+- **User query:** What is the BNS?
+- **Expected behavior:** Provide answer
+- **Observed behavior:** HTTP 200, Abstained: True
+- **Intent:** UNKNOWN
+- **Resolved Act:** UNKNOWN
+- **Resolved provision:** UNKNOWN
+- **Retrieval candidate count:** 0
+- **Accepted source count:** 0
+- **Temporal status:** N/A (requires deeper inspection)
+- **Evidence sufficiency result:** Insufficient
+- **Qwen invoked:** False
+- **Abstained:** True
+- **Citation result:** N/A
+- **Earliest failing layer:** ACT_RESOLUTION_FAILURE
+- **Root cause:** Pending Investigation
+- **Proposed fix:** Pending
+- **Regression test:** Pending
+- **Live validation query:** Pending
+- **Status:** Investigating
+
+### Finding ID: 2
+- **Act:** Bharatiya Nyaya Sanhita
+- **User query:** What is the purpose of the BNS?
+- **Expected behavior:** Provide answer
+- **Observed behavior:** HTTP 200, Abstained: True
+- **Intent:** UNKNOWN
+- **Resolved Act:** UNKNOWN
+- **Resolved provision:** UNKNOWN
+- **Retrieval candidate count:** 0
+- **Accepted source count:** 0
+- **Temporal status:** N/A (requires deeper inspection)
+- **Evidence sufficiency result:** Insufficient
+- **Qwen invoked:** False
+- **Abstained:** True
+- **Citation result:** N/A
+- **Earliest failing layer:** ACT_RESOLUTION_FAILURE
+- **Root cause:** Pending Investigation
+- **Proposed fix:** Pending
+- **Regression test:** Pending
+- **Live validation query:** Pending
+- **Status:** Investigating
+
+### Finding ID: 3
+- **Act:** Bharatiya Nyaya Sanhita
+- **User query:** Explain Section 3 of BNS.
+- **Expected behavior:** Provide answer
+- **Observed behavior:** HTTP 200, Abstained: True
+- **Intent:** UNKNOWN
+- **Resolved Act:** UNKNOWN
+- **Resolved provision:** UNKNOWN
+- **Retrieval candidate count:** 0
+- **Accepted source count:** 0
+- **Temporal status:** N/A (requires deeper inspection)
+- **Evidence sufficiency result:** Insufficient
+- **Qwen invoked:** False
+- **Abstained:** True
+- **Citation result:** N/A
+- **Earliest failing layer:** ACT_RESOLUTION_FAILURE
+- **Root cause:** Pending Investigation
+- **Proposed fix:** Pending
+- **Regression test:** Pending
+- **Live validation query:** Pending
+- **Status:** Investigating
+
+### Finding ID: 4
+- **Act:** Bharatiya Nyaya Sanhita
+- **User query:** What is the penalty under Section 4 of BNS?
+- **Expected behavior:** Provide answer
+- **Observed behavior:** HTTP 200, Abstained: True
+- **Intent:** UNKNOWN
+- **Resolved Act:** UNKNOWN
+- **Resolved provision:** UNKNOWN
+- **Retrieval candidate count:** 0
+- **Accepted source count:** 0
+- **Temporal status:** N/A (requires deeper inspection)
+- **Evidence sufficiency result:** Insufficient
+- **Qwen invoked:** False
+- **Abstained:** True
+- **Citation result:** N/A
+- **Earliest failing layer:** ACT_RESOLUTION_FAILURE
+- **Root cause:** Pending Investigation
+- **Proposed fix:** Pending
+- **Regression test:** Pending
+- **Live validation query:** Pending
+- **Status:** Investigating
+
+### Finding ID: 5
+- **Act:** Bharatiya Nyaya Sanhita
+- **User query:** What does bharatiya nyaya sanhita deal with?
+- **Expected behavior:** Provide answer
+- **Observed behavior:** HTTP 200, Abstained: True
+- **Intent:** UNKNOWN
+- **Resolved Act:** UNKNOWN
+- **Resolved provision:** UNKNOWN
+- **Retrieval candidate count:** 0
+- **Accepted source count:** 0
+- **Temporal status:** N/A (requires deeper inspection)
+- **Evidence sufficiency result:** Insufficient
+- **Qwen invoked:** False
+- **Abstained:** True
+- **Citation result:** N/A
+- **Earliest failing layer:** ACT_RESOLUTION_FAILURE
+- **Root cause:** Pending Investigation
+- **Proposed fix:** Pending
+- **Regression test:** Pending
+- **Live validation query:** Pending
+- **Status:** Investigating
+
+### Finding ID: 6
+- **Act:** Bharatiya Nyaya Sanhita
+- **User query:** What is Section 9999 of BNS?
+- **Expected behavior:** EXPECTED_ABSTENTION
+- **Observed behavior:** HTTP 200, Abstained: True
+- **Intent:** UNKNOWN
+- **Resolved Act:** UNKNOWN
+- **Resolved provision:** UNKNOWN
+- **Retrieval candidate count:** 0
+- **Accepted source count:** 0
+- **Temporal status:** N/A (requires deeper inspection)
+- **Evidence sufficiency result:** Insufficient
+- **Qwen invoked:** False
+- **Abstained:** True
+- **Citation result:** N/A
+- **Earliest failing layer:** EXPECTED_ABSTENTION
+- **Root cause:** N/A
+- **Proposed fix:** Pending
+- **Regression test:** Pending
+- **Live validation query:** Pending
+- **Status:** Investigating
+
+### Finding ID: 7
+- **Act:** Bharatiya Nyaya Sanhita
+- **User query:** Explain this section in BNS.
+- **Expected behavior:** Provide answer
+- **Observed behavior:** HTTP 200, Abstained: True
+- **Intent:** UNKNOWN
+- **Resolved Act:** UNKNOWN
+- **Resolved provision:** UNKNOWN
+- **Retrieval candidate count:** 0
+- **Accepted source count:** 0
+- **Temporal status:** N/A (requires deeper inspection)
+- **Evidence sufficiency result:** Insufficient
+- **Qwen invoked:** False
+- **Abstained:** True
+- **Citation result:** N/A
+- **Earliest failing layer:** ACT_RESOLUTION_FAILURE
+- **Root cause:** Pending Investigation
+- **Proposed fix:** Pending
+- **Regression test:** Pending
+- **Live validation query:** Pending
+- **Status:** Investigating
+
+### Finding ID: 8
+- **Act:** Information Technology Act
+- **User query:** What is the IT Act?
+- **Expected behavior:** Provide answer
+- **Observed behavior:** HTTP 200, Abstained: True
+- **Intent:** UNKNOWN
+- **Resolved Act:** UNKNOWN
+- **Resolved provision:** UNKNOWN
+- **Retrieval candidate count:** 0
+- **Accepted source count:** 0
+- **Temporal status:** N/A (requires deeper inspection)
+- **Evidence sufficiency result:** Insufficient
+- **Qwen invoked:** False
+- **Abstained:** True
+- **Citation result:** N/A
+- **Earliest failing layer:** ACT_RESOLUTION_FAILURE
+- **Root cause:** Pending Investigation
+- **Proposed fix:** Pending
+- **Regression test:** Pending
+- **Live validation query:** Pending
+- **Status:** Investigating
+
+### Finding ID: 9
+- **Act:** Information Technology Act
+- **User query:** What is the purpose of the IT Act?
+- **Expected behavior:** Provide answer
+- **Observed behavior:** HTTP 200, Abstained: True
+- **Intent:** UNKNOWN
+- **Resolved Act:** UNKNOWN
+- **Resolved provision:** UNKNOWN
+- **Retrieval candidate count:** 0
+- **Accepted source count:** 0
+- **Temporal status:** N/A (requires deeper inspection)
+- **Evidence sufficiency result:** Insufficient
+- **Qwen invoked:** False
+- **Abstained:** True
+- **Citation result:** N/A
+- **Earliest failing layer:** ACT_RESOLUTION_FAILURE
+- **Root cause:** Pending Investigation
+- **Proposed fix:** Pending
+- **Regression test:** Pending
+- **Live validation query:** Pending
+- **Status:** Investigating
+
+### Finding ID: 10
+- **Act:** Information Technology Act
+- **User query:** Explain Section 3 of IT Act.
+- **Expected behavior:** Provide answer
+- **Observed behavior:** HTTP 500, Abstained: True
+- **Intent:** UNKNOWN
+- **Resolved Act:** UNKNOWN
+- **Resolved provision:** UNKNOWN
+- **Retrieval candidate count:** 0
+- **Accepted source count:** 0
+- **Temporal status:** N/A (requires deeper inspection)
+- **Evidence sufficiency result:** Insufficient
+- **Qwen invoked:** False
+- **Abstained:** True
+- **Citation result:** N/A
+- **Earliest failing layer:** ENVIRONMENTAL_FAILURE
+- **Root cause:** Pending Investigation
+- **Proposed fix:** Pending
+- **Regression test:** Pending
+- **Live validation query:** Pending
+- **Status:** Investigating
+
+### Finding ID: 11
+- **Act:** Information Technology Act
+- **User query:** What is the penalty under Section 4 of IT Act?
+- **Expected behavior:** Provide answer
+- **Observed behavior:** HTTP 200, Abstained: True
+- **Intent:** UNKNOWN
+- **Resolved Act:** UNKNOWN
+- **Resolved provision:** UNKNOWN
+- **Retrieval candidate count:** 0
+- **Accepted source count:** 0
+- **Temporal status:** N/A (requires deeper inspection)
+- **Evidence sufficiency result:** Insufficient
+- **Qwen invoked:** False
+- **Abstained:** True
+- **Citation result:** N/A
+- **Earliest failing layer:** ACT_RESOLUTION_FAILURE
+- **Root cause:** Pending Investigation
+- **Proposed fix:** Pending
+- **Regression test:** Pending
+- **Live validation query:** Pending
+- **Status:** Investigating
+
+### Finding ID: 12
+- **Act:** Information Technology Act
+- **User query:** What does Information Technology Act deal with?
+- **Expected behavior:** Provide answer
+- **Observed behavior:** HTTP 200, Abstained: True
+- **Intent:** UNKNOWN
+- **Resolved Act:** UNKNOWN
+- **Resolved provision:** UNKNOWN
+- **Retrieval candidate count:** 0
+- **Accepted source count:** 0
+- **Temporal status:** N/A (requires deeper inspection)
+- **Evidence sufficiency result:** Insufficient
+- **Qwen invoked:** False
+- **Abstained:** True
+- **Citation result:** N/A
+- **Earliest failing layer:** ACT_RESOLUTION_FAILURE
+- **Root cause:** Pending Investigation
+- **Proposed fix:** Pending
+- **Regression test:** Pending
+- **Live validation query:** Pending
+- **Status:** Investigating
+
+### Finding ID: 13
+- **Act:** Information Technology Act
+- **User query:** What is Section 9999 of IT Act?
+- **Expected behavior:** EXPECTED_ABSTENTION
+- **Observed behavior:** HTTP 200, Abstained: True
+- **Intent:** UNKNOWN
+- **Resolved Act:** UNKNOWN
+- **Resolved provision:** UNKNOWN
+- **Retrieval candidate count:** 0
+- **Accepted source count:** 0
+- **Temporal status:** N/A (requires deeper inspection)
+- **Evidence sufficiency result:** Insufficient
+- **Qwen invoked:** False
+- **Abstained:** True
+- **Citation result:** N/A
+- **Earliest failing layer:** EXPECTED_ABSTENTION
+- **Root cause:** N/A
+- **Proposed fix:** Pending
+- **Regression test:** Pending
+- **Live validation query:** Pending
+- **Status:** Investigating
+
+### Finding ID: 14
+- **Act:** Information Technology Act
+- **User query:** Explain this section in IT Act.
+- **Expected behavior:** Provide answer
+- **Observed behavior:** HTTP 200, Abstained: True
+- **Intent:** UNKNOWN
+- **Resolved Act:** UNKNOWN
+- **Resolved provision:** UNKNOWN
+- **Retrieval candidate count:** 0
+- **Accepted source count:** 0
+- **Temporal status:** N/A (requires deeper inspection)
+- **Evidence sufficiency result:** Insufficient
+- **Qwen invoked:** False
+- **Abstained:** True
+- **Citation result:** N/A
+- **Earliest failing layer:** ACT_RESOLUTION_FAILURE
+- **Root cause:** Pending Investigation
+- **Proposed fix:** Pending
+- **Regression test:** Pending
+- **Live validation query:** Pending
+- **Status:** Investigating
+

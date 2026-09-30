@@ -1,0 +1,21 @@
+{
+  "generated_at": "2026-09-16T13:50:53.501437+00:00",
+  "total_documents_checked": 21,
+  "total_chunks_checked": 3814,
+  "hash_verification": {
+    "duplicate_content_hashes": 0,
+    "status": "PASSED"
+  },
+  "junk_text_detection": {
+    "junk_provision_numbers_detected": 0,
+    "flagged_entries": [],
+    "status": "PASSED"
+  },
+  "metadata_completeness": {
+    "documents_with_source_url": 21,
+    "documents_with_temporal_status": 21,
+    "documents_with_act_prefix": 21,
+    "completeness_rate": "100.0%"
+  },
+  "overall_validation_status": "PASSED"
+}
