@@ -1,0 +1,74 @@
+{
+  "generated_at": "2026-09-16T13:50:26.480178+00:00",
+  "status": "COMPLETED",
+  "dry_run": true,
+  "discovered_documents_count": 12,
+  "skipped_unchanged_count": 0,
+  "newly_downloaded_count": 0,
+  "newly_indexed_chunks_count": 0,
+  "failures_count": 0,
+  "manual_review_required_count": 0,
+  "processed_documents": [
+    {
+      "act_id": "COMPANIES_ACT_2013",
+      "status": "QUEUED_FOR_INGESTION",
+      "url": "https://indiacode.gov.in/server/api/core/bitstreams/a63e1c66-2f83-41e6-90e4-930e0322ca75/content"
+    },
+    {
+      "act_id": "IBC_2016",
+      "status": "QUEUED_FOR_INGESTION",
+      "url": "https://indiacode.gov.in/server/api/core/bitstreams/90597ba5-fa66-41fb-a1fa-1f1bc2fa59f3/content"
+    },
+    {
+      "act_id": "ARBITRATION_ACT_1996",
+      "status": "QUEUED_FOR_INGESTION",
+      "url": "https://indiacode.gov.in/server/api/core/bitstreams/18f56fa6-1e66-4d0f-a9cb-b46320a56fe0/content"
+    },
+    {
+      "act_id": "CONSUMER_PROTECTION_ACT_2019",
+      "status": "QUEUED_FOR_INGESTION",
+      "url": "https://indiacode.gov.in/server/api/core/bitstreams/c7689369-0df4-41d6-8eb5-94be3699c279/content"
+    },
+    {
+      "act_id": "TRANSFER_OF_PROPERTY_ACT_1882",
+      "status": "QUEUED_FOR_INGESTION",
+      "url": "https://indiacode.gov.in/server/api/core/bitstreams/c85675e0-9e79-450f-a3cf-e2195f463fc5/content"
+    },
+    {
+      "act_id": "CPC_1908",
+      "status": "QUEUED_FOR_INGESTION",
+      "url": "https://indiacode.gov.in/server/api/core/bitstreams/dbfbdd79-b1dc-49ef-b0a3-f09b55fb777e/content"
+    },
+    {
+      "act_id": "POCSO_ACT_2012",
+      "status": "QUEUED_FOR_INGESTION",
+      "url": "https://indiacode.gov.in/server/api/core/bitstreams/76686aa7-6571-4ee6-857e-7c5efc051ef9/content"
+    },
+    {
+      "act_id": "PMLA_2002",
+      "status": "QUEUED_FOR_INGESTION",
+      "url": "https://indiacode.gov.in/server/api/core/bitstreams/402eb062-ee27-4dd3-9799-9060010959ec/content"
+    },
+    {
+      "act_id": "NDPS_ACT_1985",
+      "status": "QUEUED_FOR_INGESTION",
+      "url": "https://indiacode.gov.in/server/api/core/bitstreams/4ef4e4b5-901b-4f93-9c8e-5b12da61bb0c/content"
+    },
+    {
+      "act_id": "SC_ST_POA_ACT_1989",
+      "status": "QUEUED_FOR_INGESTION",
+      "url": "https://indiacode.gov.in/server/api/core/bitstreams/f5e9334d-a773-455b-80df-8b38706312a7/content"
+    },
+    {
+      "act_id": "MOTOR_VEHICLES_ACT_1988",
+      "status": "QUEUED_FOR_INGESTION",
+      "url": "https://indiacode.gov.in/server/api/core/bitstreams/89eb5b77-cfc4-42f2-95f0-61b96a9ceb64/content"
+    },
+    {
+      "act_id": "SPECIFIC_RELIEF_ACT_1963",
+      "status": "QUEUED_FOR_INGESTION",
+      "url": "https://indiacode.gov.in/server/api/core/bitstreams/08b8295b-e1f9-4f93-854f-1a00429df098/content"
+    }
+  ],
+  "failures": []
+}

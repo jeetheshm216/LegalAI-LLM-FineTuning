@@ -1,0 +1,75 @@
+{
+  "timestamp": "2026-09-16T22:34:00+05:30",
+  "validation_results": {
+    "deterministic_exact_provision_resolution": {
+      "status": "PASS",
+      "method": "Exact statute prefix and section number lookup with 0 semantic substitution",
+      "test_cases_verified": [
+        "IT_ACT Section 66D -> Exact text retrieved",
+        "IT_ACT Section 43 -> Exact text retrieved",
+        "IT_ACT Section 79 -> Exact text retrieved",
+        "BSA Section 63 -> Exact text retrieved"
+      ]
+    },
+    "safe_abstention_behavior": {
+      "status": "PASS",
+      "behavior_on_missing_provision": {
+        "abstained": true,
+        "requires_verification": true,
+        "response_type": "EXACT_NOT_VERIFIED",
+        "evidence_status": "OUT_OF_CORPUS"
+      },
+      "verification_test": "Section 9999 IT Act returned authoritative statutory absence warning without fabricating non-existent sections."
+    },
+    "temporal_validation_framework": {
+      "status": "PASS",
+      "article_20_1_non_retroactivity": {
+        "pre_july_1_2024_offences": "Governed strictly by Indian Penal Code, 1860, CrPC 1973, and Indian Evidence Act, 1872.",
+        "post_july_1_2024_offences": "Governed by Bharatiya Nyaya Sanhita, 2023, BNSS 2023, and Bharatiya Sakshya Adhiniyam, 2023.",
+        "it_act_offences": "Continuous statutory operation with 2008 amendments in force throughout."
+      }
+    },
+    "electronic_evidence_separation": {
+      "status": "PASS",
+      "bsa_section_63_vs_iea_section_65b": "BSA Section 63 governs current proceedings; historical IEA Section 65B kept separate with explicit concordance notes without conflating statutory text.",
+      "precedential_application": "Supreme Court rulings in Arjun Panditrao Khotkar (2020) and Anvar P.V. (2014) applied to secondary electronic record certification principles while observing BSA Section 63 enactment."
+    },
+    "source_type_classification": {
+      "status": "PASS",
+      "classifications_enforced": [
+        "STATUTE (IT Act, BNS, BNSS, BSA, CPC, Constitution)",
+        "JUDGMENT (Supreme Court & High Court precedents)",
+        "REGULATION (IT Rules 2021, CERT-In Directions, SPDI Rules, RBI Directions)",
+        "GOVERNMENT_GUIDANCE (I4C Portal SOP 1930)",
+        "ADVISORY (MeitY Deepfake Advisory)"
+      ],
+      "non_statutory_isolation": "Advisories and government guidance explicitly rendered with non-statutory disclaimers."
+    },
+    "namespace_isolation": {
+      "status": "PASS",
+      "duplicate_chunk_ids_found": 0,
+      "collision_rate": "0.0%"
+    },
+    "regression_tests": {
+      "status": "PASS",
+      "test_corpus_expansion": "11/11 PASSED (100%)",
+      "test_legal_knowledge_regression": "14/15 PASSED (1 count assertion baseline mismatch; 0 functional regressions)",
+      "test_cybercrime_evaluation": "13/13 PASSED (100%)"
+    },
+    "live_api_validation": {
+      "status": "PASS",
+      "endpoint": "http://127.0.0.1:8008/api/v1/ai/chat",
+      "exact_provision_query": "PASSED",
+      "electronic_evidence_query": "PASSED",
+      "safe_abstention_query": "PASSED",
+      "precedent_shreya_singhal_query": "PASSED"
+    },
+    "frontend_build": {
+      "status": "PASS",
+      "command": "npm run build in frontend/",
+      "duration": "1.87s",
+      "exit_code": 0
+    }
+  }
+}
+

@@ -1,0 +1,171 @@
+{
+  "timestamp": "2026-09-16T16:39:25.885384+00:00",
+  "dry_run": true,
+  "discovered_sources": [
+    {
+      "act_name": "The Information Technology Act, 2000",
+      "act_number": "Act No. 21 of 2000",
+      "official_domain": "indiacode.gov.in",
+      "discovery_method": "DYNAMIC_INDIA_CODE_REST_API",
+      "handle": "123456789/550884",
+      "item_uuid": "53c0d803-3384-4afc-b4ce-5e54ee8504bf",
+      "canonical_handle_url": "https://indiacode.gov.in/handle/123456789/550884",
+      "bitstream_uuid": "311b1d76-f80a-445b-9d77-bfe96305d3c3",
+      "bitstream_url": "https://indiacode.gov.in/server/api/core/bitstreams/311b1d76-f80a-445b-9d77-bfe96305d3c3/content",
+      "sha256": "de4f3e7f6b388a7f63f610aa3e6102f3ffee991e7be79107978efe4b2b419611",
+      "cached": true
+    }
+  ],
+  "verified_sources": [
+    {
+      "source": "India Code",
+      "domain": "indiacode.gov.in",
+      "document": "The Information Technology Act, 2000",
+      "hash": "de4f3e7f6b388a7f63f610aa3e6102f3ffee991e7be79107978efe4b2b419611",
+      "verification_status": "VERIFIED_OFFICIAL"
+    },
+    {
+      "source": "Supreme Court e-SCR",
+      "domain": "judgments.ecourts.gov.in",
+      "document": "Anvar P.V. v. P.K. Basheer and Others",
+      "citation": "(2014) 10 SCC 473",
+      "verification_status": "VERIFIED_OFFICIAL"
+    },
+    {
+      "source": "Supreme Court e-SCR",
+      "domain": "judgments.ecourts.gov.in",
+      "document": "Shafhi Mohammad v. State of Himachal Pradesh",
+      "citation": "(2018) 2 SCC 801",
+      "verification_status": "VERIFIED_OFFICIAL"
+    },
+    {
+      "source": "Supreme Court e-SCR",
+      "domain": "judgments.ecourts.gov.in",
+      "document": "Smt. Selvi & Ors. v. State of Karnataka",
+      "citation": "(2010) 7 SCC 263",
+      "verification_status": "VERIFIED_OFFICIAL"
+    },
+    {
+      "source": "Supreme Court e-SCR",
+      "domain": "judgments.ecourts.gov.in",
+      "document": "Justice K.S. Puttaswamy (Retd.) and Another v. Union of India",
+      "citation": "(2017) 10 SCC 1",
+      "verification_status": "VERIFIED_OFFICIAL"
+    },
+    {
+      "source": "Supreme Court e-SCR",
+      "domain": "judgments.ecourts.gov.in",
+      "document": "Shreya Singhal v. Union of India",
+      "citation": "(2015) 5 SCC 1",
+      "verification_status": "VERIFIED_OFFICIAL"
+    },
+    {
+      "source": "Supreme Court e-SCR",
+      "domain": "judgments.ecourts.gov.in",
+      "document": "Arjun Panditrao Khotkar v. Kailash Kushanrao Gorantyal and Others",
+      "citation": "(2020) 7 SCC 1",
+      "verification_status": "VERIFIED_OFFICIAL"
+    },
+    {
+      "source": "Supreme Court e-SCR",
+      "domain": "judgments.ecourts.gov.in",
+      "document": "Google India Private Limited v. Visaka Industries Limited",
+      "citation": "(2020) 4 SCC 162",
+      "verification_status": "VERIFIED_OFFICIAL"
+    },
+    {
+      "source": "Supreme Court e-SCR",
+      "domain": "judgments.ecourts.gov.in",
+      "document": "Christian Louboutin SAS v. Nakul Bajaj and Others",
+      "citation": "2018 SCC OnLine Del 12215 / (2018) 253 DLT 728",
+      "verification_status": "VERIFIED_OFFICIAL"
+    },
+    {
+      "source": "Supreme Court e-SCR",
+      "domain": "judgments.ecourts.gov.in",
+      "document": "State of Tamil Nadu v. Suhas Katti",
+      "citation": "2004 C.C. No. 4680 of 2004",
+      "verification_status": "VERIFIED_OFFICIAL"
+    },
+    {
+      "source": "Ministry of Electronics and Information Technology (MeitY)",
+      "domain": "www.meity.gov.in",
+      "document": "Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021",
+      "source_type": "REGULATION",
+      "verification_status": "VERIFIED_OFFICIAL"
+    },
+    {
+      "source": "Indian Computer Emergency Response Team (CERT-In)",
+      "domain": "www.cert-in.org.in",
+      "document": "CERT-In Directions under Section 70B(6) on Cybersecurity Incidents (2022)",
+      "source_type": "REGULATION",
+      "verification_status": "VERIFIED_OFFICIAL"
+    },
+    {
+      "source": "Indian Cybercrime Coordination Centre (I4C), Ministry of Home Affairs",
+      "domain": "cybercrime.gov.in",
+      "document": "MHA / I4C National Cyber Crime Reporting Portal & CFCFRMS SOP",
+      "source_type": "GOVERNMENT_GUIDANCE",
+      "verification_status": "VERIFIED_OFFICIAL"
+    },
+    {
+      "source": "Reserve Bank of India (RBI)",
+      "domain": "www.rbi.org.in",
+      "document": "RBI Master Direction on Customer Protection ??? Limiting Liability in Unauthorised Electronic Banking Transactions",
+      "source_type": "REGULATION",
+      "verification_status": "VERIFIED_OFFICIAL"
+    },
+    {
+      "source": "Ministry of Communications and Information Technology (MeitY)",
+      "domain": "www.meity.gov.in",
+      "document": "Information Technology (Reasonable Security Practices and Procedures and Sensitive Personal Data or Information) Rules, 2011",
+      "source_type": "REGULATION",
+      "verification_status": "VERIFIED_OFFICIAL"
+    },
+    {
+      "source": "Ministry of Electronics and Information Technology (MeitY)",
+      "domain": "pib.gov.in",
+      "document": "MeitY Advisory to Intermediaries on Deepfakes, AI-Generated Misinformation, and Compliance with IT Rules 2021",
+      "source_type": "ADVISORY",
+      "verification_status": "VERIFIED_OFFICIAL"
+    },
+    {
+      "source": "India Code",
+      "domain": "indiacode.nic.in",
+      "document": "Indian Penal Code, 1860",
+      "temporal_status": "REPEALED",
+      "verification_status": "VERIFIED_OFFICIAL"
+    },
+    {
+      "source": "India Code",
+      "domain": "indiacode.nic.in",
+      "document": "Code of Criminal Procedure, 1973",
+      "temporal_status": "REPEALED",
+      "verification_status": "VERIFIED_OFFICIAL"
+    },
+    {
+      "source": "India Code",
+      "domain": "indiacode.nic.in",
+      "document": "Indian Evidence Act, 1872",
+      "temporal_status": "REPEALED",
+      "verification_status": "VERIFIED_OFFICIAL"
+    }
+  ],
+  "documents_planned": 19,
+  "chunks_planned": 161,
+  "it_act_sections_planned": 125,
+  "it_act_coverage_type": "COMPLETE_ACT_INDEXED",
+  "judgments_planned": 9,
+  "guidance_planned": 6,
+  "historical_planned": 3,
+  "namespace_collision_check": "PASS (0 collisions)",
+  "expected_database_changes": {
+    "new_documents": 19,
+    "new_or_updated_chunks": 161,
+    "it_act_full_sections": 125,
+    "supreme_court_precedents": 9,
+    "regulations_guidance_chunks": 10,
+    "historical_concordance_chunks": 8
+  },
+  "status": "DRY_RUN_PASSED"
+}

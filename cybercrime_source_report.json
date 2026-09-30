@@ -1,0 +1,114 @@
+{
+  "timestamp": "2026-09-16T22:33:00+05:30",
+  "verification_policy": "NO_FABRICATION_POLICY_STRICT",
+  "sources_verified": [
+    {
+      "source_id": "SRC_INDIA_CODE_IT_ACT",
+      "entity": "Legislative Department, Ministry of Law and Justice, Government of India",
+      "portal": "India Code Digital Repository",
+      "canonical_url": "https://indiacode.gov.in/handle/123456789/550884",
+      "bitstream_url": "https://indiacode.gov.in/server/api/core/bitstreams/311b1d76-f80a-445b-9d77-bfe96305d3c3/content",
+      "act_name": "The Information Technology Act, 2000",
+      "act_number": "Act No. 21 of 2000",
+      "sha256": "de4f3e7f6b388a7f63f610aa3e6102f3ffee991e7be79107978efe4b2b419611",
+      "verification_method": "DYNAMIC_INDIA_CODE_REST_API",
+      "verification_status": "VERIFIED_AUTHENTIC_OFFICIAL"
+    },
+    {
+      "source_id": "SRC_MEITY_IT_RULES_2021",
+      "entity": "Ministry of Electronics and Information Technology (MeitY)",
+      "portal": "MeitY Official Portal",
+      "canonical_url": "https://www.meity.gov.in/writereaddata/files/Intermediary_Guidelines_and_Digital_Media_Ethics_Code_Rules-2021.pdf",
+      "document_title": "Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021",
+      "gazette_notification": "G.S.R. 139(E)",
+      "enactment_date": "2021-02-25",
+      "verification_status": "VERIFIED_AUTHENTIC_OFFICIAL"
+    },
+    {
+      "source_id": "SRC_MEITY_SPDI_RULES_2011",
+      "entity": "Ministry of Communications and Information Technology (MeitY)",
+      "portal": "MeitY Official Portal",
+      "canonical_url": "https://www.meity.gov.in/writereaddata/files/Notification_11_04_2011.pdf",
+      "document_title": "Information Technology (Reasonable Security Practices and Procedures and Sensitive Personal Data or Information) Rules, 2011",
+      "gazette_notification": "G.S.R. 313(E)",
+      "enactment_date": "2011-04-11",
+      "verification_status": "VERIFIED_AUTHENTIC_OFFICIAL"
+    },
+    {
+      "source_id": "SRC_CERTIN_DIRECTIONS_2022",
+      "entity": "Indian Computer Emergency Response Team (CERT-In)",
+      "portal": "CERT-In Official Portal",
+      "canonical_url": "https://www.cert-in.org.in/PDF/CERT-In_Directions_70B_28.04.2022.pdf",
+      "document_title": "Directions under sub-section (6) of section 70B of the Information Technology Act, 2000",
+      "order_number": "No. 20(3)/2022-CERT-In",
+      "enactment_date": "2022-04-28",
+      "verification_status": "VERIFIED_AUTHENTIC_OFFICIAL"
+    },
+    {
+      "source_id": "SRC_RBI_UNAUTHORISED_TRANSACTIONS_2017",
+      "entity": "Reserve Bank of India (RBI)",
+      "portal": "RBI Master Directions Portal",
+      "canonical_url": "https://www.rbi.org.in/Scripts/NotificationUser.aspx?Id=11040",
+      "circular_number": "DBR.No.Leg.BC.78/09.07.005/2017-18",
+      "document_title": "Customer Protection ??? Limiting Liability of Customers in Unauthorised Electronic Banking Transactions",
+      "enactment_date": "2017-07-06",
+      "verification_status": "VERIFIED_AUTHENTIC_OFFICIAL"
+    },
+    {
+      "source_id": "SRC_MHA_I4C_PORTAL_SOP",
+      "entity": "Indian Cybercrime Coordination Centre (I4C), Ministry of Home Affairs",
+      "portal": "National Cyber Crime Reporting Portal",
+      "canonical_url": "https://cybercrime.gov.in/Webform/Helpline.aspx",
+      "document_title": "Citizen Financial Cyber Fraud Reporting and Management System (CFCFRMS) 1930 Helpline SOP",
+      "source_type": "GOVERNMENT_GUIDANCE",
+      "verification_status": "VERIFIED_AUTHENTIC_OFFICIAL"
+    },
+    {
+      "source_id": "SRC_MEITY_DEEPFAKES_ADVISORY_2023",
+      "entity": "Ministry of Electronics and Information Technology (MeitY)",
+      "portal": "Press Information Bureau (PIB) / MeitY",
+      "canonical_url": "https://pib.gov.in/PressReleasePage.aspx?PRID=1990429",
+      "document_title": "MeitY Advisory to Intermediaries on Deepfakes, AI-Generated Misinformation, and Compliance with IT Rules 2021",
+      "source_type": "ADVISORY",
+      "enactment_date": "2023-12-26",
+      "verification_status": "VERIFIED_AUTHENTIC_OFFICIAL"
+    },
+    {
+      "source_id": "SRC_SCI_ESCR_SHREYA_SINGHAL",
+      "entity": "Supreme Court of India",
+      "portal": "e-SCR / Digital Supreme Court Reports",
+      "citation": "(2015) 5 SCC 1",
+      "case_name": "Shreya Singhal v. Union of India",
+      "decision_date": "2015-03-24",
+      "verification_status": "VERIFIED_AUTHENTIC_OFFICIAL"
+    },
+    {
+      "source_id": "SRC_SCI_ESCR_ARJUN_PANDITRAO",
+      "entity": "Supreme Court of India",
+      "portal": "e-SCR / Digital Supreme Court Reports",
+      "citation": "(2020) 7 SCC 1",
+      "case_name": "Arjun Panditrao Khotkar v. Kailash Kushanrao Gorantyal and Others",
+      "decision_date": "2020-07-14",
+      "verification_status": "VERIFIED_AUTHENTIC_OFFICIAL"
+    },
+    {
+      "source_id": "SRC_SCI_ESCR_ANVAR_PV",
+      "entity": "Supreme Court of India",
+      "portal": "e-SCR / Digital Supreme Court Reports",
+      "citation": "(2014) 10 SCC 473",
+      "case_name": "Anvar P.V. v. P.K. Basheer and Others",
+      "decision_date": "2014-09-18",
+      "verification_status": "VERIFIED_AUTHENTIC_OFFICIAL"
+    },
+    {
+      "source_id": "SRC_DHC_CHRISTIAN_LOUBOUTIN",
+      "entity": "High Court of Delhi",
+      "portal": "Delhi High Court Judgment Portal",
+      "citation": "2018 SCC OnLine Del 12215 / (2018) 253 DLT 728",
+      "case_name": "Christian Louboutin SAS v. Nakul Bajaj and Others",
+      "decision_date": "2018-11-02",
+      "verification_status": "VERIFIED_AUTHENTIC_OFFICIAL"
+    }
+  ]
+}
+

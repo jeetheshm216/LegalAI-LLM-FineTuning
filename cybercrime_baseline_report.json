@@ -1,0 +1,61 @@
+{
+  "timestamp": "2026-09-16T21:35:00+05:30",
+  "phase": "pre_implementation_baseline_audit",
+  "database": {
+    "path": "/home/sece2026-student07/legalai-finetuning/data/legalai_indian_legal_knowledge.db",
+    "byte_size": 39600128,
+    "sha256": "fc9e6a78ba8b63323dde68649570814644ff5dc4ae886d60e7a17abee92ded1e",
+    "document_count": 32,
+    "chunk_count": 3959
+  },
+  "existing_test_baseline": {
+    "test_corpus_expansion.py": {
+      "passed": 11,
+      "failed": 0,
+      "status": "PASS"
+    },
+    "test_legal_knowledge_regression.py": {
+      "passed": 25,
+      "failed": 1,
+      "failure_reason": "test_database_counts asserted doc count == 21, but 32 documents exist in DB",
+      "status": "EXPECTED_COUNT_MISMATCH"
+    },
+    "test_indian_legal_knowledge.py": {
+      "passed": 10,
+      "failed": 3,
+      "failure_reason": "Strict disambiguation required enactments for ambiguous single provision queries without act name",
+      "status": "BASELINE_RECORDED"
+    }
+  },
+  "existing_documents_breakdown": {
+    "DOC_BNS_2023": 786,
+    "DOC_BNSS_2023": 1146,
+    "DOC_BSA_2023": 353,
+    "DOC_CPC_1908": 761,
+    "DOC_CONST_INDIA": 512,
+    "DOC_ARBITRATION_1996": 91,
+    "DOC_COMMERCIAL_COURTS_2015": 27,
+    "DOC_CONSUMER_PROTECTION_2019": 111,
+    "DOC_IT_ACT_2000": 7,
+    "DOC_COMPANIES_ACT_2013": 54,
+    "DOC_INSOLVENCY_BANKRUPTCY_2016": 42,
+    "DOC_LIMITATION_ACT_1963": 34,
+    "DOC_MOTOR_VEHICLES_ACT_1988": 17,
+    "DOC_NEGOTIABLE_INSTRUMENTS_1881": 15,
+    "DOC_PARTNERSHIP_ACT_1932": 8,
+    "DOC_POKS_2012": 5,
+    "DOC_RTI_ACT_2005": 6,
+    "DOC_SALE_OF_GOODS_1930": 7,
+    "DOC_SPECIFIC_RELIEF_1963": 8,
+    "DOC_TRANSFER_OF_PROPERTY_1882": 7
+  },
+  "gaps_identified": {
+    "IT_Act_2000": "Only 7 chunks present in DOC_IT_ACT_2000. Critical cybercrime provisions (Sections 43, 43A, 65, 66, 66B-66F, 67, 67A-B, 69, 69A, 70, 72A, 79, 84B, 84C, 85) are completely missing.",
+    "BNS_cyber_enabled": "No cyber-specific classification or cross-linking for cyber fraud/forgery/cheating (Sections 316, 318, 336, 340).",
+    "BNSS_cyber_procedure": "Cyber-relevant search/seizure and production (Sections 94, 95, 107, 185) not tagged for cybercrime routing.",
+    "BSA_electronic_evidence": "BSA Section 63 present but not disambiguated from historical IEA Section 65B.",
+    "Judgments": "Zero landmark cybercrime precedents currently indexed (Shreya Singhal, Anvar PV, Arjun Panditrao missing).",
+    "Government_Guidance": "Zero CERT-In directions, Intermediary Guidelines, or MHA cybercrime reporting portal guidelines indexed."
+  }
+}
+

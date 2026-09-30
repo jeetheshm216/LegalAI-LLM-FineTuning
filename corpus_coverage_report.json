@@ -1,0 +1,129 @@
+{
+  "generated_at": "2026-09-16T13:50:53.501437+00:00",
+  "scope": "Central Indian Legislation & Landmark Precedents",
+  "inventory_authority": "India Code Digital Repository (indiacode.nic.in)",
+  "central_acts_covered_count": 18,
+  "covered_acts": [
+    {
+      "act_prefix": "CONTRACT_ACT",
+      "title": "Indian Contract Act, 1872",
+      "chunks": 4,
+      "status": "CURRENT"
+    },
+    {
+      "act_prefix": "IT_ACT",
+      "title": "Information Technology Act, 2000",
+      "chunks": 4,
+      "status": "CURRENT"
+    },
+    {
+      "act_prefix": "NI_ACT",
+      "title": "Negotiable Instruments Act, 1881",
+      "chunks": 5,
+      "status": "CURRENT"
+    },
+    {
+      "act_prefix": "ARBITRATION_ACT_1996",
+      "title": "The Arbitration and Conciliation Act, 1996",
+      "chunks": 168,
+      "status": "CURRENT"
+    },
+    {
+      "act_prefix": "BNSS",
+      "title": "The Bharatiya Nagarik Suraksha Sanhita, 2023",
+      "chunks": 545,
+      "status": "CURRENT"
+    },
+    {
+      "act_prefix": "BNS",
+      "title": "The Bharatiya Nyaya Sanhita, 2023",
+      "chunks": 370,
+      "status": "CURRENT"
+    },
+    {
+      "act_prefix": "BSA",
+      "title": "The Bharatiya Sakshya Adhiniyam, 2023",
+      "chunks": 174,
+      "status": "CURRENT"
+    },
+    {
+      "act_prefix": "CPC_1908",
+      "title": "The Code of Civil Procedure, 1908",
+      "chunks": 667,
+      "status": "CURRENT"
+    },
+    {
+      "act_prefix": "COMPANIES_ACT_2013",
+      "title": "The Companies Act, 2013",
+      "chunks": 737,
+      "status": "CURRENT"
+    },
+    {
+      "act_prefix": "CONSUMER_PROTECTION_ACT_2019",
+      "title": "The Consumer Protection Act, 2019",
+      "chunks": 110,
+      "status": "CURRENT"
+    },
+    {
+      "act_prefix": "IBC_2016",
+      "title": "The Insolvency and Bankruptcy Code, 2016",
+      "chunks": 332,
+      "status": "CURRENT"
+    },
+    {
+      "act_prefix": "MOTOR_VEHICLES_ACT_1988",
+      "title": "The Motor Vehicles Act, 1988",
+      "chunks": 270,
+      "status": "CURRENT"
+    },
+    {
+      "act_prefix": "NDPS_ACT_1985",
+      "title": "The Narcotic Drugs and Psychotropic Substances Act, 1985",
+      "chunks": 66,
+      "status": "CURRENT"
+    },
+    {
+      "act_prefix": "PMLA_2002",
+      "title": "The Prevention of Money-Laundering Act, 2002",
+      "chunks": 81,
+      "status": "CURRENT"
+    },
+    {
+      "act_prefix": "POCSO_ACT_2012",
+      "title": "The Protection of Children from Sexual Offences Act, 2012",
+      "chunks": 48,
+      "status": "CURRENT"
+    },
+    {
+      "act_prefix": "SC_ST_POA_ACT_1989",
+      "title": "The Scheduled Castes and the Scheduled Tribes (Prevention of Atrocities) Act, 1989",
+      "chunks": 26,
+      "status": "CURRENT"
+    },
+    {
+      "act_prefix": "SPECIFIC_RELIEF_ACT_1963",
+      "title": "The Specific Relief Act, 1963",
+      "chunks": 52,
+      "status": "CURRENT"
+    },
+    {
+      "act_prefix": "TRANSFER_OF_PROPERTY_ACT_1882",
+      "title": "The Transfer of Property Act, 1882",
+      "chunks": 146,
+      "status": "CURRENT"
+    }
+  ],
+  "constitutional_coverage": "Fundamental Rights (Articles 14, 19, 21, 32) & High Court Writ Jurisdiction (Article 226)",
+  "criminal_law_transition_coverage": {
+    "current_regime": "Bharatiya Nyaya Sanhita, 2023; Bharatiya Nagarik Suraksha Sanhita, 2023; Bharatiya Sakshya Adhiniyam, 2023",
+    "historical_regime": "Indian Penal Code, 1860; Code of Criminal Procedure, 1973; Indian Evidence Act, 1872 (Concordance Mapped)",
+    "transition_cutoff": "2024-07-01"
+  },
+  "coverage_limitations": [
+    "Indexes 18 primary Central Acts of economic, procedural, commercial, and criminal importance.",
+    "Subordinate State Acts and local Municipal rules are outside the central core index.",
+    "Constitution of India currently indexes core constitutional remedies; full 395-article index pending.",
+    "Arbitrary unindexed central acts trigger verified safe abstention notice."
+  ],
+  "manual_review_count": 0
+}

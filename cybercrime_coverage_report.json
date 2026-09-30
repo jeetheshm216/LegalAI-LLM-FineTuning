@@ -1,0 +1,177 @@
+{
+  "timestamp": "2026-09-16T22:32:00+05:30",
+  "domain": "Cybercrime & Technology Law",
+  "coverage_distinction_disclaimer": {
+    "complete_source_available": "Official source document verified and stored in local raw corpus repository.",
+    "complete_act_indexed": "Every section of the enacted and amended legislation is parsed into individual indexed statutory chunks.",
+    "selected_provisions_indexed": "Specific penal, procedural, or evidentiary provisions relevant to cyber investigations and offences are extracted and indexed."
+  },
+  "statutory_coverage": {
+    "Information_Technology_Act_2000": {
+      "act_number": "Act No. 21 of 2000",
+      "coverage_status": "COMPLETE_ACT_INDEXED",
+      "total_sections_enacted": 94,
+      "total_chunks_indexed": 126,
+      "verified_source": "India Code (indiacode.gov.in/handle/123456789/550884)",
+      "sha256": "de4f3e7f6b388a7f63f610aa3e6102f3ffee991e7be79107978efe4b2b419611",
+      "key_cybercrime_provisions": [
+        "Section 43 (Damage to computer, computer system, unauthorized download, malware)",
+        "Section 43A (Compensation for failure to protect sensitive personal data)",
+        "Section 65 (Tampering with computer source documents)",
+        "Section 66 (Computer related offences with dishonest/fraudulent intent)",
+        "Section 66A (Judicially struck down by Supreme Court in Shreya Singhal (2015) 5 SCC 1)",
+        "Section 66B (Dishonestly receiving stolen computer resource)",
+        "Section 66C (Identity theft, unauthorized use of electronic signature/password)",
+        "Section 66D (Cheating by personation using computer resource)",
+        "Section 66E (Violation of privacy, capturing/transmitting images of private area)",
+        "Section 66F (Cyber terrorism)",
+        "Section 67 (Publishing or transmitting obscene material in electronic form)",
+        "Section 67A (Publishing or transmitting sexually explicit act in electronic form)",
+        "Section 67B (Child pornography / child sexual abuse material)",
+        "Section 67C (Preservation and retention of information by intermediaries)",
+        "Section 68 (Power of Controller to give directions)",
+        "Section 69 (Power to issue directions for interception, monitoring or decryption)",
+        "Section 69A (Power to issue directions for blocking for public access)",
+        "Section 69B (Power to authorize monitoring and collection of traffic data)",
+        "Section 70 (Protected systems and critical information infrastructure)",
+        "Section 70A (National nodal agency for critical information infrastructure protection - NCIIPC)",
+        "Section 70B (Indian Computer Emergency Response Team - CERT-In)",
+        "Section 72 (Penalty for breach of confidentiality and privacy)",
+        "Section 72A (Punishment for disclosure of information in breach of lawful contract)",
+        "Section 77A (Compounding of offences)",
+        "Section 78 (Power to investigate offences - Inspector of Police and above)",
+        "Section 79 (Exemption from liability of intermediary in certain cases - Safe Harbor)",
+        "Section 84B (Punishment for abetment of offences)",
+        "Section 84C (Punishment for attempt to commit offences)",
+        "Section 85 (Offences by companies)"
+      ]
+    },
+    "Bharatiya_Nyaya_Sanhita_2023": {
+      "coverage_status": "CYBER_RELEVANT_PROVISIONS_INDEXED",
+      "provisions_covered": [
+        "Section 316 (Criminal breach of trust)",
+        "Section 318 (Cheating)",
+        "Section 319 (Cheating by personation)",
+        "Section 336 (Forgery)",
+        "Section 340 (Forged document / electronic record)",
+        "Section 78 (Stalking, including electronic monitoring)"
+      ]
+    },
+    "Bharatiya_Nagarik_Suraksha_Sanhita_2023": {
+      "coverage_status": "CYBER_RELEVANT_PROCEDURE_INDEXED",
+      "provisions_covered": [
+        "Section 94 (Summons to produce document, electronic communication or device)",
+        "Section 105 (Mandatory audio-video recording of search and seizure operations)",
+        "Section 107 (Attachment, forfeiture or seizure of property in cyber fraud)",
+        "Section 173 (Information in cognizable cases, explicitly recognizing e-FIR)"
+      ]
+    },
+    "Bharatiya_Sakshya_Adhiniyam_2023": {
+      "coverage_status": "ELECTRONIC_EVIDENCE_PROVISIONS_INDEXED",
+      "provisions_covered": [
+        "Section 61 (Admissibility of electronic records)",
+        "Section 62 (Special provisions as to evidence relating to electronic record)",
+        "Section 63 (Admissibility of electronic records and Certificate requirements)"
+      ]
+    }
+  },
+  "regulatory_and_guidance_coverage": {
+    "IT_Rules_2021": {
+      "title": "Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021",
+      "source_type": "REGULATION",
+      "provisions_covered": [
+        "Rule 3 (Due diligence by intermediary and grievance redressal)",
+        "Rule 3(2)(b) (Mandatory 24-hour takedown of non-consensual sexual/morphed imagery)"
+      ]
+    },
+    "SPDI_Rules_2011": {
+      "title": "IT (Reasonable Security Practices and Procedures and Sensitive Personal Data or Information) Rules, 2011",
+      "source_type": "REGULATION",
+      "provisions_covered": [
+        "Rule 3 (Definition of sensitive personal data or information)",
+        "Rule 8 (Reasonable security practices and ISO/IEC 27001 standard)"
+      ]
+    },
+    "CERT_In_Directions_2022": {
+      "title": "CERT-In Directions under Section 70B(6) on Cybersecurity Incidents (2022)",
+      "source_type": "REGULATION",
+      "provisions_covered": [
+        "Direction 5.1 (Mandatory 6-hour incident reporting window to CERT-In)",
+        "Direction 5.2 (System clock synchronization via NTP and 180-day ICT log retention)"
+      ]
+    },
+    "RBI_Electronic_Banking_Directions": {
+      "title": "RBI Master Direction on Customer Protection ??? Limiting Liability in Unauthorised Electronic Banking Transactions",
+      "source_type": "REGULATION",
+      "provisions_covered": [
+        "Para 6 (Zero liability of customer in contributory bank negligence or 3-day notification)",
+        "Para 7 (Limited liability for notification between 4 to 7 working days)"
+      ]
+    },
+    "I4C_MHA_Portal_SOP": {
+      "title": "National Cyber Crime Reporting Portal (cybercrime.gov.in) & CFCFRMS SOP",
+      "source_type": "GOVERNMENT_GUIDANCE",
+      "provisions_covered": [
+        "I4C_SOP_1930 (Citizen Financial Cyber Fraud Reporting and Management System 1930 Helpline)"
+      ]
+    },
+    "MeitY_Deepfake_Advisory_2023": {
+      "title": "MeitY Advisory on Deepfakes and AI-Generated Misinformation under IT Rules 2021",
+      "source_type": "ADVISORY",
+      "provisions_covered": [
+        "ADV_DEEPFAKES_PARA_1 (Intermediary due diligence obligations and loss of Section 79 safe harbor for non-compliance)"
+      ]
+    }
+  },
+  "judicial_precedents_coverage": [
+    {
+      "citation": "(2015) 5 SCC 1",
+      "case": "Shreya Singhal v. Union of India",
+      "court": "Supreme Court of India",
+      "subject": "Section 66A struck down as unconstitutional; Section 79(3)(b) read down to require court order or government notification."
+    },
+    {
+      "citation": "(2020) 7 SCC 1",
+      "case": "Arjun Panditrao Khotkar v. Kailash Kushanrao Gorantyal",
+      "court": "Supreme Court of India (3-Judge Bench)",
+      "subject": "Section 65B(4) certificate mandatory for secondary electronic evidence; Shafhi Mohammad overruled."
+    },
+    {
+      "citation": "(2014) 10 SCC 473",
+      "case": "Anvar P.V. v. P.K. Basheer and Others",
+      "court": "Supreme Court of India (3-Judge Bench)",
+      "subject": "Special provisions of Section 65A/65B exclude general secondary evidence rules; Navjot Sandhu overruled."
+    },
+    {
+      "citation": "(2010) 7 SCC 263",
+      "case": "Smt. Selvi & Ors. v. State of Karnataka",
+      "court": "Supreme Court of India (3-Judge Bench)",
+      "subject": "Involuntary narco-analysis, polygraph, and BEAP brain mapping violate Article 20(3) and 21; digital mental privacy."
+    },
+    {
+      "citation": "(2017) 10 SCC 1",
+      "case": "Justice K.S. Puttaswamy (Retd.) v. Union of India",
+      "court": "Supreme Court of India (9-Judge Constitution Bench)",
+      "subject": "Fundamental right to privacy under Article 21 encompasses informational privacy and digital communications."
+    },
+    {
+      "citation": "(2020) 4 SCC 162",
+      "case": "Google India Pvt Ltd v. Visaka Industries",
+      "court": "Supreme Court of India",
+      "subject": "Pre-2008 intermediary liability did not grant blanket immunity for criminal defamation under IPC."
+    },
+    {
+      "citation": "(2018) 253 DLT 728",
+      "case": "Christian Louboutin SAS v. Nakul Bajaj",
+      "court": "High Court of Delhi",
+      "subject": "Active e-commerce platforms lose Section 79 safe harbor immunity for trademark counterfeiting."
+    },
+    {
+      "citation": "2004 C.C. No. 4680/2004",
+      "case": "State of Tamil Nadu v. Suhas Katti",
+      "court": "ACMM Court, Egmore, Chennai",
+      "subject": "First conviction under Section 67 IT Act for cyber harassment and defamatory electronic posting."
+    }
+  ]
+}
+
